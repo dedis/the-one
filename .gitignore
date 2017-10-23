@@ -1,0 +1,10 @@
+# vim
+*~
+*.swp
+
+# java
+*.class
+
+# local, project specific
+doc/
+reports/
