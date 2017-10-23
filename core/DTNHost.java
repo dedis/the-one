@@ -34,17 +34,23 @@ public class DTNHost implements Comparable<DTNHost> {
 	private List<NetworkInterface> net;
 	private ModuleCommunicationBus comBus;
 
+        // Moby variables
+        // TODO LATER: there currently is no way to add/remove contacts during a simulation
         private HashMap<String, List<Integer>> trustElements; // TODO
+        // FYI: trustElements.get(hostName) = List(nbCommonMobyContacts, nbCommonNonMobyContacts, nbCommunicationsWith)
         private HashMap<String, Boolean> contactType; // TODO
-        private HashMap<String, Integer> allFowardedMsgIds; // TODO
+        // contactType is a list of contacts, where true means it is a Moby contact, and false means it is a non-Moby contact
+        private HashMap<String, Integer> allForwardedMsgIds; // TODO
+        // FYI: allForwardedMsgIds.get(msgId) = expiryDate (in seconds) of msgId
         private int nbMobyContacts; // TODO
         private int nbNonMobyContacts; // TODO
         private int highestNbCommunications; // TODO
         private int maxNbMobyContacts; // TODO
         private int maxNbNonMobyContacts; // TODO
-        private int lastForwardTime; // TODO: output (as seconds) of SimClock.getIntTime()
-        private int forwardIntervalTime; // TODO: time interval (in seconds) to check if this host already did too many forwards of its message queue
+        private int lastForwardTime; // TODO LATER: output (as seconds) of SimClock.getIntTime()
+        private int forwardIntervalTime; // TODO LATER: time interval (in seconds) to check if this host already did too many forwards of its message queue
         private int durationToKeepAlreadyForwardedMsgs; // TODO: time in seconds
+        private Random rand; // TODO
 
 	static {
 		DTNSim.registerForReset(DTNHost.class.getCanonicalName());
@@ -557,87 +563,163 @@ public class DTNHost implements Comparable<DTNHost> {
         }
 
         public int getNbCommonNonMobyContacts(String hostName) {
-                // TODO
-                return -1;
+                if (trustElements.contains(hostName)) {
+                        return trustElements.get(hostName).get(1);
+                } else {
+                        return -1;
+                }
         }
 
         public int getNbCommunicationsWith(String hostName) {
-                // TODO
-                return -1;
+                if (trustElements.contains(hostName)) {
+                        return trustElements.get(hostName).get(2);
+                } else {
+                        return -1;
+                }
         }
 
         public void incrementNbCommunicationsWith(String hostName) {
-                // TODO, including checking against highestNbCommunications
+                if (trustElements.contains(hostName)) {
+                        nbComms = trustElements.get(hostName).get(2);
+                        trustElements.get(hostName).set(2, nbComms++);
+                        
+                        // checking if highestNbCommunications needs updating
+                        if (nbComms > highestNbCommunications) {
+                                highestNbCommunications = nbComms;
+                        }
+                } else {
+                        // Error, throw exception? TODO
+                }
         }
 
         public int getActualOrMaxNbMobyContacts(int maximum) {
-                // TODO: if nbMobyContacts >= maximum, return maximum
-                return -1;
+                // Counting Moby contacts
+                if (nbMobyContacts == -1) {
+                        nbMobyContacts = 0;
+                        for (Boolean type: contactType.values()) {
+                                if (type) {
+                                        nbMobyContacts++;
+                                }
+                        }
+                }
+                // Checking whether to cap the returned result
+                if (nbMobyContacts > maximum) {
+                        return maximum;
+                } else {
+                        return nbMobyContacts;
+                }
         }
         
         public int getActualOrMaxNbNonMobyContacts(int maximum) {
-                // TODO: if nbNonMobyContacts >= maximum, return maximum
-                return -1;
+                // Counting Moby contacts
+                if (nbNonMobyContacts == -1) {
+                        nbNonMobyContacts = 0;
+                        for (Boolean type: contactType.values()) {
+                                if (!type) {
+                                        nbNonMobyContacts++;
+                                }
+                        }
+                }
+                // Checking whether to cap the returned result
+                if (nbNonMobyContacts > maximum) {
+                        return maximum;
+                } else {
+                        return nbNonMobyContacts;
+                }
         }
         
         public int getHighestNbCommunications() {
-                // TODO
-                return -1;
+                return highestNbCommunications;
         }
 
         public boolean hasAlreadyForwarded(String msgId) {
-                // TODO: check against allFowardedMsgIds
-                return false;
+                return allForwardedMsgIds.containsKey(msgId);
         }
 
         public void addToAlreadyForwardedMsg(String msgId) {
-                // TODO: add with simulation time, only if not already present
+                if (!allForwardedMsgIds.containsKey(msgId)) {
+                        allForwardedMsgIds.put(msgId, SimClock.getIntTime() + durationToKeepAlreadyForwardedMsgs);
+                }
         }
 
         public static void updateNbCommonContacts(DTNHost thisHost, DTNHost neighorHost) {
-                mobyContactsA = thisHost.getMobyContactsRandSubset(maxNbMobyContacts);
-                mobyContactsB = neighborHost.getMobyContacts(maxNbMobyContacts);
+                Set<String> mobyContactsA = thisHost.getMobyContactsRandSubset(maxNbMobyContacts);
+                Set<String> mobyContactsB = neighborHost.getMobyContacts(maxNbMobyContacts);
                 Set<String> commonMobyContacts = new HashSet<>(mobyContactsA);
                 commonMobyContacts.retainAll(mobyContactsB);
-                nbCommonMobyContacts = commonMobyContacts.size();
+                int nbCommonMobyContacts = commonMobyContacts.size();
                 thisHost.updateNbCommonMobyContacts(neighborHost.toString(), nbCommonMobyContacts);
                 neighborHost.updateNbCommonMobyContacts(thisHost.toString(), nbCommonMobyContacts);
 
-                nonMobyContactsA = thisHost.getNonMobyContacts(maxNbNonMobyContacts);
-                nonMobyContactsB = neighborHost.getNonMobyContacts(maxNbNonMobyContacts);
+                Set<String> nonMobyContactsA = thisHost.getNonMobyContacts(maxNbNonMobyContacts);
+                Set<String> nonMobyContactsB = neighborHost.getNonMobyContacts(maxNbNonMobyContacts);
                 Set<String> commonNonMobyContacts = new HashSet<>(nonMobyContactsA);
                 commonNonMobyContacts.retainAll(nonMobyContactsB);
-                nbCommonNonMobyContacts = commonNonMobyContacts.size();
+                int nbCommonNonMobyContacts = commonNonMobyContacts.size();
                 thisHost.updateNbCommonNonMobyContacts(neighborHost.toString(), nbCommonNonMobyContacts);
                 neighborHost.updateNbCommonNonMobyContacts(thisHost.toString(), nbCommonNonMobyContacts);
         }
 
-        public void updateNbCommonMobyContacts(String hostName) {
-                // TODO
+        public void updateNbCommonMobyContacts(String hostName, int nbCommonMobyContacts) {
+                if (!trustElements.contains(hostName)) {
+                        initNewContactTrustElements(hostName);
+                }
+                trustElements.get(hostName).set(0, nbCommonMobyContacts);
         }
 
-        public void updateNbCommonNonMobyContacts(String hostName) {
-                // TODO
+        private void initNewContactTrustElements(String hostName) {
+                elements = new ArrayList<Integer>(3);
+                elements.add(0);
+                elements.add(0);
+                elements.add(0);
+                trustElements.put(hostName, elements);
+        }
+
+        public void updateNbCommonNonMobyContacts(String hostName, int nbCommonNonMobyContacts) {
+                if (!trustElements.contains(hostName)) {
+                        initNewContactTrustElements(hostName);
+                }
+                trustElements.get(hostName).set(1, nbCommonNonMobyContacts);
         }
 
         public Set<String> getMobyContacts() {
-                // TODO
-                return null;
+                Set<String> result = new HashSet<>();
+                for (Map.Entry<String, Boolean> contact: contactType.entrySet()) {
+                        if (contact.getValue()) {
+                                result.add(contact.getKey());
+                        }
+                }
+                return result;
         }
 
         public Set<String> getMobyContactsRandSubset(int maxNbMobyContacts) {
-                // TODO
-                return null;
+                List<String> mobyContacts = new ArrayList<>(getMobyContacts());
+                Set<String> result = new HashSet<>(maxNbMobyContacts);
+                for (int i = 0; i < maxNbMobyContacts; i++) {
+                        int randIndex = rand.nextInt(mobyContacts.size());
+                        result.add(mobyContacts.remove(randIndex));
+                }
+                return result;
         }
 
         public Set<String> getNonMobyContacts() {
-                // TODO
-                return null;
+                Set<String> result = new HashSet<>();
+                for (Map.Entry<String, Boolean> contact: contactType.entrySet()) {
+                        if (!contact.getValue()) {
+                                result.add(contact.getKey());
+                        }
+                }
+                return result;
         }
 
         public Set<String> getNonMobyContactsRandSubset(int maxNbNonMobyContacts) {
-                // TODO
-                return null;
+                List<String> nonMobyContacts = new ArrayList<>(getNonMobyContacts());
+                Set<String> result = new HashSet<>(maxNbNonMobyContacts);
+                for (int i = 0; i < maxNbNonMobyContacts; i++) {
+                        int randIndex = rand.nextInt(nonMobyContacts.size());
+                        result.add(nonMobyContacts.remove(randIndex));
+                }
+                return result;
         }
 
         public boolean tooManyForwardsInInterval(int currentTime) {
@@ -646,7 +728,11 @@ public class DTNHost implements Comparable<DTNHost> {
         }
 
         public void removeOldMsgFromAlreadyFowarded(int currentTime) {
-                // TODO: remove msg IDs that have in allFowardedMsgIds for more than durationToKeepAlreadyForwardedMsgs seconds (currentTime is in seconds too)
+                for (String msgId: allForwardedMsgIds.keySet()) {
+                        if (allForwardedMsgIds.get(msgId) < currentTime) {
+                                allForwardedMsgIds.remove(msgId);
+                        }
+                }
         }
 
 }
