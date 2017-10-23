@@ -32,7 +32,7 @@ public class Message implements Comparable<Message> {
 	private double timeReceived;
 	/** The time when this message was created */
 	private double timeCreated;
-	/** Initial TTL of the message */
+	/** Initial TTL of the message (in minutes) */
 	private int initTtl;
 	
 	/** if a response to this message is required, this is the size of the 
@@ -359,5 +359,9 @@ public class Message implements Comparable<Message> {
 	public void setAppID(String appID) {
 		this.appID = appID;
 	}
+
+        public void updatePriority(float newPriority) {
+                // TODO
+        }
 	
 }

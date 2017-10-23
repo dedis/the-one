@@ -397,6 +397,8 @@ abstract public class NetworkInterface implements ModuleCommunicationListener {
 	 * that are out of range, recalculates transmission speeds etc.).
 	 */
 	abstract public void update();
+                // Called by DTNHost.update()
+
 
 	/**
 	 * Notifies all the connection listeners about a change in connections.

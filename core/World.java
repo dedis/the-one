@@ -178,6 +178,7 @@ public class World {
 	 * are made in random order.
 	 */
 	private void updateHosts() {
+                // Called by this.update()
 		if (this.updateOrder == null) { // randomizing is off
 			for (int i=0, n = hosts.size();i < n; i++) {
 				if (this.isCancelled) {

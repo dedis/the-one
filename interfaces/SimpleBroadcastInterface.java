@@ -65,6 +65,8 @@ public class SimpleBroadcastInterface extends NetworkInterface {
 	 * that are out of range and creates new ones).
 	 */
 	public void update() {
+                // Called by DTNHost.update()
+
 		if (optimizer == null) {
 			return; /* nothing to do */
 		}

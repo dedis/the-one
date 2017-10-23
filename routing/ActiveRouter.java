@@ -448,6 +448,7 @@ public abstract class ActiveRouter extends MessageRouter {
 	 * accepted a message.
 	 */
 	protected Connection tryAllMessagesToAllConnections(){
+                // TODO: implement forward here?
 		List<Connection> connections = getConnections();
 		if (connections.size() == 0 || this.getNrofMessages() == 0) {
 			return null;

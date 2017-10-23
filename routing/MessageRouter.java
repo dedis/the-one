@@ -46,6 +46,7 @@ public abstract class MessageRouter {
 	 * <UL>
 	 * <LI/> 1 : random (message order is randomized every time; default option)
 	 * <LI/> 2 : FIFO (most recently received messages are sent last)
+	 * <LI/> 3 : priority based (messages with the lowest priority are dropped first when the queue is full)
 	 * </UL>
 	 */ 
 	public static final String SEND_QUEUE_MODE_S = "sendQueue";
@@ -54,6 +55,8 @@ public abstract class MessageRouter {
 	public static final int Q_MODE_RANDOM = 1;
 	/** Setting value for FIFO queue mode */
 	public static final int Q_MODE_FIFO = 2;
+	/** Setting value for a priority queue mode */
+	public static final int Q_MODE_PRIORITY = 3;
 	
 	/* Return values when asking to start a transmission:
 	 * RCV_OK (0) means that the host accepts the message and transfer started, 
@@ -120,7 +123,7 @@ public abstract class MessageRouter {
 		}
 		if (s.contains(SEND_QUEUE_MODE_S)) {
 			this.sendQueueMode = s.getInt(SEND_QUEUE_MODE_S);
-			if (sendQueueMode < 1 || sendQueueMode > 2) {
+			if (sendQueueMode < 1 || sendQueueMode > 3) {
 				throw new SettingsError("Invalid value for " + 
 						s.getFullPropertyName(SEND_QUEUE_MODE_S));
 			}
@@ -537,12 +540,37 @@ public abstract class MessageRouter {
 			});
 			break;
 		/* add more queue modes here */
+                case Q_MODE_PRIORITY:
+                        Collections.sort(list, 
+					new Comparator() {
+				/** Compares two tuples by their messages' priority */
+				public int compare(Object o1, Object o2) {
+					Message m1 = castObjAsMessage(o1);
+					Message m2 = castObjAsMessage(o2);
+                                        return compareByQueueMode(m1, m2);
+				}
+			});
+                        break;
 		default:
 			throw new SimError("Unknown queue mode " + sendQueueMode);
 		}
 		
 		return list;
 	}
+
+        protected Message castObjAsMessage(Object o) {
+                if (o instanceof Tuple) {
+                        m = ((Tuple<Message, Connection>)o).getKey();
+                }
+                else if (o instanceof Message) {
+                        m = (Message)o;
+                }
+                else {
+                        throw new SimError("Invalid type of objects in " + 
+                                        "the list");
+                }
+                return m;
+        }
 
 	/**
 	 * Gives the order of the two given messages as defined by the current
@@ -564,6 +592,20 @@ public abstract class MessageRouter {
 			}
 			return (diff < 0 ? -1 : 1);
 		/* add more queue modes here */
+                case Q_MODE_PRIORITY:
+                        double diff;
+                        float m1Priority = (float)m1.getProperty("priority");
+                        float m2Priority = (float)m2.getProperty("priority");
+                        if (m1Priority != null && m2Priority != null) {
+                                diff = m1Priority - m2Priority;
+                                if (diff == 0) {
+                                        return 0;
+                                }
+                                return (diff < 0 ? -1 : 1);
+                        } else {
+                                throw new SimError("Some message(s) do not have a priority property");
+                        }
+                        break;
 		default:
 			throw new SimError("Unknown queue mode " + sendQueueMode);
 		}
