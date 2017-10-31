@@ -881,5 +881,12 @@ public class Settings {
 	public String toString() {
 		return props.toString();
 	}
+
+        /**
+         * Set the value of a single setting.
+         */
+        public void setSetting(String name, String value) {
+                props.setProperty(name, value);
+        }
 	
 }

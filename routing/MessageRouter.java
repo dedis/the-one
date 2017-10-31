@@ -82,6 +82,9 @@ public abstract class MessageRouter {
 	public static final int DENIED_POLICY = -5;
 	/** Receive return value for unspecified reason */
 	public static final int DENIED_UNSPECIFIED = -99;
+
+        // Moby-specific
+        private Random rand;
 	
 	private List<MessageListener> mListeners;
 	/** The messages being transferred with msgID_hostName keys */
@@ -697,4 +700,9 @@ public abstract class MessageRouter {
 			this.getHost().toString() + " with " + getNrofMessages() 
 			+ " messages";
 	}
+
+        // Moby-specific
+        public void setTtlRandomizationSeed(int seed) {
+                this.rand = new Random(seed);
+        }
 }

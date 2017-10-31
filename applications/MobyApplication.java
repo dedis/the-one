@@ -61,7 +61,15 @@ public class MobyApplication extends Application {
 	//private int		destMax=1;
 	//private int		pingSize=1;
 	//private int		pongSize=1;
-	private Random	rng;
+	//private Random	rng;
+
+        private static final String TRUST_WEIGHT_OF_MOBY_CONTACTS_S = "trustWeightMobyContacts";
+        private static final String TRUST_WEIGHT_OF_NON_MOBY_CONTACTS_S = "trustWeightMobyContacts";
+        private static final String TRUST_WEIGHT_OF_NB_COMMUNICATIONS_S = "trustWeightnrofCommunications";
+        private static final String MAX_NB_MOBY_CONTACTS_S = "maxnrofMobyContacts";
+        private static final String MAX_NB_NON_MOBY_CONTACTS_S = "maxnrofNonMobyContacts";
+        private static final String TTL_MEAN_TIME_S = "ttlMeanTime";
+        private static final String TTL_STD_DEV_TIME_S = "ttlStdDevTime";
 
         /** Importance factor of the number of common Moby contacts in trust score */
         private float alpha = 0.3;
@@ -82,31 +90,47 @@ public class MobyApplication extends Application {
 	 * @param s	Settings to use for initializing the application.
 	 */
 	public MobyApplication(Settings s) {
-		if (s.contains(PING_PASSIVE)){
-			this.passive = s.getBoolean(PING_PASSIVE);
-		}
-		if (s.contains(PING_INTERVAL)){
-			this.interval = s.getDouble(PING_INTERVAL);
-		}
-		if (s.contains(PING_OFFSET)){
-			this.lastPing = s.getDouble(PING_OFFSET);
-		}
-		if (s.contains(PING_SEED)){
-			this.seed = s.getInt(PING_SEED);
-		}
-		if (s.contains(PING_PING_SIZE)) {
-			this.pingSize = s.getInt(PING_PING_SIZE);
-		}
-		if (s.contains(PING_PONG_SIZE)) {
-			this.pongSize = s.getInt(PING_PONG_SIZE);
-		}
-		if (s.contains(PING_DEST_RANGE)){
-			int[] destination = s.getCsvInts(PING_DEST_RANGE,2);
-			this.destMin = destination[0];
-			this.destMax = destination[1];
-		}
+                this.alpha = s.getDouble(TRUST_WEIGHT_OF_MOBY_CONTACTS_S);
+                Settings.ensurePositiveValue(this.alpha, TRUST_WEIGHT_OF_MOBY_CONTACTS_S);
+                this.beta = s.getDouble(TRUST_WEIGHT_OF_NON_MOBY_CONTACTS_S);
+                Settings.ensurePositiveValue(this.beta, TRUST_WEIGHT_OF_NON_MOBY_CONTACTS_S);
+                this.gamma = s.getDouble(TRUST_WEIGHT_OF_NB_COMMUNICATIONS_S);
+                Settings.ensurePositiveValue(this.gamma, TRUST_WEIGHT_OF_NB_COMMUNICATIONS_S);
+                this.maxNbMobyContacts = s.getInt(MAX_NB_MOBY_CONTACTS_S);
+                Settings.ensurePositiveValue((double)this.maxNbMobyContacts, MAX_NB_MOBY_CONTACTS_S);
+                this.maxNbNonMobyContacts = s.getInt(MAX_NB_NON_MOBY_CONTACTS_S);
+                Settings.ensurePositiveValue((double)this.maxNbNonMobyContacts, MAX_NB_NON_MOBY_CONTACTS_S);
+                int ttlMeanTime = s.getInt(TTL_MEAN_TIME_S);
+                Settings.ensurePositiveValue((double)ttlMeanTime, TTL_MEAN_TIME_S);
+                int ttlStdDevTime = s.getInt(TTL_STD_DEV_TIME_S);
+                Settings.ensurePositiveValue((double)ttlStdDevTime, TTL_STD_DEV_TIME_S);
+                this.maxTtl = (ttlMeanTime + ttlStdDevTime) * 60;
+
+		/*if (s.contains(PING_PASSIVE)){*/
+			//this.passive = s.getBoolean(PING_PASSIVE);
+		//}
+		//if (s.contains(PING_INTERVAL)){
+			//this.interval = s.getDouble(PING_INTERVAL);
+		//}
+		//if (s.contains(PING_OFFSET)){
+			//this.lastPing = s.getDouble(PING_OFFSET);
+		//}
+		//if (s.contains(PING_SEED)){
+			//this.seed = s.getInt(PING_SEED);
+		//}
+		//if (s.contains(PING_PING_SIZE)) {
+			//this.pingSize = s.getInt(PING_PING_SIZE);
+		//}
+		//if (s.contains(PING_PONG_SIZE)) {
+			//this.pongSize = s.getInt(PING_PONG_SIZE);
+		//}
+		//if (s.contains(PING_DEST_RANGE)){
+			//int[] destination = s.getCsvInts(PING_DEST_RANGE,2);
+			//this.destMin = destination[0];
+			//this.destMax = destination[1];
+		//}
 		
-		rng = new Random(this.seed);
+		/*rng = new Random(this.seed);*/
 		super.setAppID(APP_ID);
 	}
 	
@@ -117,15 +141,22 @@ public class MobyApplication extends Application {
 	 */
 	public MobyApplication(MobyApplication a) {
 		super(a);
-		this.lastPing = a.getLastPing();
-		this.interval = a.getInterval();
-		this.passive = a.isPassive();
-		this.destMax = a.getDestMax();
-		this.destMin = a.getDestMin();
-		this.seed = a.getSeed();
-		this.pongSize = a.getPongSize();
-		this.pingSize = a.getPingSize();
-		this.rng = new Random(this.seed);
+		/*this.lastPing = a.getLastPing();*/
+		//this.interval = a.getInterval();
+		//this.passive = a.isPassive();
+		//this.destMax = a.getDestMax();
+		//this.destMin = a.getDestMin();
+		//this.seed = a.getSeed();
+		//this.pongSize = a.getPongSize();
+		//this.pingSize = a.getPingSize();
+		/*this.rng = new Random(this.seed);*/
+
+                this.alpha = a.alpha;
+                this.beta = a.beta;
+                this.gamma = a.gamma;
+                this.maxNbMobyContacts = a.maxNbMobyContacts;
+                this.maxNbNonMobyContacts = a.maxNbNonMobyContacts;
+                this.maxTtl = a.maxTtl;
 	}
 	
 	/** 
@@ -137,6 +168,8 @@ public class MobyApplication extends Application {
 	 */
 	@Override
 	public Message handle(Message msg, DTNHost host) {
+                // Returning null in this function tells the caller to drop msg
+                
 		String type = (String)msg.getProperty("type");
 		if (type==null) return msg; // Not a Moby message
 		
@@ -147,25 +180,25 @@ public class MobyApplication extends Application {
                         }
                         
                         // Check host did not already forward msg in the recent past
-                        msgId = msg.getId();
+                        String msgId = msg.getId();
                         if (host.hasAlreadyForwarded(msgId)) {
                                 return null;
                         }
                         
                         // Compute host's trust in the forwarderHost
-                        hostsOnPathOfMsg = msg.getHops();
-                        forwarderHost = hostsOnPathOfMsg.get(hostsOnPathOfMsg.size() - 1);
+                        List<DTNHost> hostsOnPathOfMsg = msg.getHops();
+                        DTNHost forwarderHost = hostsOnPathOfMsg.get(hostsOnPathOfMsg.size() - 1);
                         // Assuming nbCommon*Contacts have already been updated via PSI computation at this point
-                        trustInForwarder = computeTrustScore(host, forwarderHost);
+                        float trustInForwarder = computeTrustScore(host, forwarderHost);
 
                         // Compute msg's priority
-                        msgPriority = computeMsgPriority(msg, trustInForwarder);
-                        msg.addProperty(priority, msgPriority);
+                        float msgPriority = computeMsgPriority(msg, trustInForwarder);
+                        msg.updatePriority(msgPriority);
                         
                         // Check msg is already in host's queue & with what priority
-                        hostRouter = host.getRouter();
+                        MobyRouter hostRouter = (MobyRouter)host.getRouter();
                         if (hostRouter.hasMessage(msgId)) {
-                                msg2 = hostRouter.getMessage(msgId);
+                                Message msg2 = hostRouter.getMessage(msgId);
                                 float msg2Priority = (float)msg2.getProperty("priority");
                                 if (msg2Priority != null && msg2Priority > msgPriority) {
                                         msg.updatePriority(msg2Priority);
@@ -182,12 +215,12 @@ public class MobyApplication extends Application {
                                 }
                         }
 
-                        // If host is the receiver, update some counter(s), and add msg to the queue because 
-                        // MessageRouter.messageTransferred(), which invokes handle(), will add msg only to 
+                        // If host is the receiver, update some counter(s), and keep msg in the queue because 
+                        // MessageRouter.messageTransferred(), which invokes handle(), will put msg only to 
                         // deliveredMessages.
                         if (host.equals(msg.getTo())) {
                                 host.incrementNbCommunicationsWith(msg.getFrom().toString());
-                                hostRouter.addToMessages(msg, false);
+                                hostRouter.addToMessages(msg, false); // keep msg in the queue
                         }
 
 
@@ -205,15 +238,15 @@ public class MobyApplication extends Application {
 	 * 
 	 * @return host
 	 */
-	private DTNHost randomHost() {
-		int destaddr = 0;
-		if (destMax == destMin) {
-			destaddr = destMin;
-		}
-		destaddr = destMin + rng.nextInt(destMax - destMin);
-		World w = SimScenario.getInstance().getWorld();
-		return w.getNodeByAddress(destaddr);
-	}
+	//private DTNHost randomHost() {
+		//int destaddr = 0;
+		//if (destMax == destMin) {
+			//destaddr = destMin;
+		//}
+		//destaddr = destMin + rng.nextInt(destMax - destMin);
+		//World w = SimScenario.getInstance().getWorld();
+		//return w.getNodeByAddress(destaddr);
+	/*}*/
 	
 	@Override
 	public Application replicate() {
@@ -221,7 +254,7 @@ public class MobyApplication extends Application {
 	}
 
 	/** 
-	 * Sends a ping packet if this is an active application instance.
+	 * Tell host to forget the oldest already-forwarded messages.
 	 * 
 	 * @param host to which the application instance is attached
 	 */
@@ -233,114 +266,114 @@ public class MobyApplication extends Application {
 	/**
 	 * @return the lastPing
 	 */
-	public double getLastPing() {
-		return lastPing;
-	}
+	//public double getLastPing() {
+		//return lastPing;
+	/*}*/
 
 	/**
 	 * @param lastPing the lastPing to set
 	 */
-	public void setLastPing(double lastPing) {
-		this.lastPing = lastPing;
-	}
+	//public void setLastPing(double lastPing) {
+		//this.lastPing = lastPing;
+	/*}*/
 
 	/**
 	 * @return the interval
 	 */
-	public double getInterval() {
-		return interval;
-	}
+	//public double getInterval() {
+		//return interval;
+	/*}*/
 
 	/**
 	 * @param interval the interval to set
 	 */
-	public void setInterval(double interval) {
-		this.interval = interval;
-	}
+	//public void setInterval(double interval) {
+		//this.interval = interval;
+	/*}*/
 
 	/**
 	 * @return the passive
 	 */
-	public boolean isPassive() {
-		return passive;
-	}
+	//public boolean isPassive() {
+		//return passive;
+	/*}*/
 
 	/**
 	 * @param passive the passive to set
 	 */
-	public void setPassive(boolean passive) {
-		this.passive = passive;
-	}
+	//public void setPassive(boolean passive) {
+		//this.passive = passive;
+	/*}*/
 
 	/**
 	 * @return the destMin
 	 */
-	public int getDestMin() {
-		return destMin;
-	}
+	//public int getDestMin() {
+		//return destMin;
+	/*}*/
 
 	/**
 	 * @param destMin the destMin to set
 	 */
-	public void setDestMin(int destMin) {
-		this.destMin = destMin;
-	}
+	//public void setDestMin(int destMin) {
+		//this.destMin = destMin;
+	//}
 
 	/**
 	 * @return the destMax
 	 */
-	public int getDestMax() {
-		return destMax;
-	}
+	//public int getDestMax() {
+		//return destMax;
+	//}
 
 	/**
 	 * @param destMax the destMax to set
 	 */
-	public void setDestMax(int destMax) {
-		this.destMax = destMax;
-	}
+	//public void setDestMax(int destMax) {
+		//this.destMax = destMax;
+	/*}*/
 
 	/**
 	 * @return the seed
 	 */
-	public int getSeed() {
-		return seed;
-	}
+	//public int getSeed() {
+		//return seed;
+	//}
 
 	/**
 	 * @param seed the seed to set
 	 */
-	public void setSeed(int seed) {
-		this.seed = seed;
-	}
+	//public void setSeed(int seed) {
+		//this.seed = seed;
+	//}
 
 	/**
 	 * @return the pongSize
 	 */
-	public int getPongSize() {
-		return pongSize;
-	}
+	//public int getPongSize() {
+		//return pongSize;
+	//}
 
 	/**
 	 * @param pongSize the pongSize to set
 	 */
-	public void setPongSize(int pongSize) {
-		this.pongSize = pongSize;
-	}
+	//public void setPongSize(int pongSize) {
+		//this.pongSize = pongSize;
+	//}
 
 	/**
 	 * @return the pingSize
 	 */
-	public int getPingSize() {
-		return pingSize;
-	}
+	//public int getPingSize() {
+		//return pingSize;
+	//}
 
 	/**
 	 * @param pingSize the pingSize to set
 	 */
-	public void setPingSize(int pingSize) {
-		this.pingSize = pingSize;
-	}
+	//public void setPingSize(int pingSize) {
+		//this.pingSize = pingSize;
+	/*}*/
 
         // This function assumes host.nbCommon*Contacts have already been updated via PSI computation at this point
         public static float computeTrustScore(host, forwarderHost) {

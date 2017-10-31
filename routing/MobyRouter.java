@@ -12,27 +12,15 @@ import core.Settings;
  */
 public class MobyRouter extends ActiveRouter {
 
-        /**
-         * - should not need to set or change a MessageTransferAcceptPolicy
-         * - should not need to an EnergyModel
-         * - the routing protocol (this class) should define a queue order for messages (probably need to define a new queue mode and add a case statement to sortByQueueMode(), in MessageRouter)
-         * - make sure that Settings.deleteDelivered = false
-         * - implement per-msg TTL instead of 1 TTL value for all msgs in a router/node group
-         * - isDeliveredMessage(m) for a user to check if msg m whose receiver is this user, has already been received
-         * - isBlacklistedMessage(m.Id) to check if this user's application blacklisted m, meaning the app wants m to be dropped
-         * - sendMessage(m, user) to forward a message to a neighbor (and receiveMessage() for the other party)
-         * - addToMessages() & removeFromMessages() to add & remove from the queue
-         * - ActiveRouter.getConnections() to get the connections to the current physical neighbors
-         * - modify ActiveRouter.checkReceiving() to implement rate limiting (if some users tries to forward to us too often)
-         * - new neighbor discovery in NetworkInterface.update()
-         */
+        private static final String MAX_NB_CONNECTIONS_FOR_FORWARD_S = "maxNbConnectionsForForward";
+        private static final String TTL_MEAN_TIME_S = "ttlMeanTime";
+        private static final String TTL_STD_DEV_TIME_S = "ttlStdDevTime";
 
         /** The lowest priority among all the messages currently in the queue */
         private float lowestPriority;
         /** Number of connections/hosts in communication range, above which we
          * select the most trustworthy ones to forward our message queue. */
         private integer maxNbConnectionsForForward;
-        private Random rng;
         private int ttlMeanTime; // in seconds
         private int ttlStdDevTime; // in seconds
 	
@@ -43,7 +31,13 @@ public class MobyRouter extends ActiveRouter {
 	 */
 	public MobyRouter(Settings s) {
 		super(s);
-		//TODO: init
+                this.lowestPriority = 1.0;
+                this.maxNbConnectionsForForward = s.getInt(MAX_NB_CONNECTIONS_FOR_FORWARD_S);
+                Settings.ensurePositiveValue((double)this.maxNbConnectionsForForward, MAX_NB_CONNECTIONS_FOR_FORWARD_S);
+                this.ttlMeanTime = s.getInt(TTL_MEAN_TIME_S);
+                Settings.ensurePositiveValue((double)this.ttlMeanTime, TTL_MEAN_TIME_S);
+                this.ttlStdDevTime = s.getInt(TTL_STD_DEV_TIME_S);
+                Settings.ensurePositiveValue((double)this.ttlStdDevTime, TTL_STD_DEV_TIME_S);
 	}
 	
 	/**
@@ -54,7 +48,8 @@ public class MobyRouter extends ActiveRouter {
 		super(r);
                 this.lowestPriority = r.lowestPriority;
                 this.maxNbConnectionsForForward = r.maxNbConnectionsForForward;
-		//TODO: init
+                this.ttlMeanTime = r.ttlMeanTime;
+                this.ttlStdDevTime = r.ttlStdDevTime;
 	}
 			
 	@Override
@@ -126,16 +121,27 @@ public class MobyRouter extends ActiveRouter {
          * successful transfer to a connection (aka a host currently in
          * communcation range). */
         protected List<Connection> tryHarderAllMessagesToConnections(List<Connection> cons) {
-		List<Connection> connections = this.getConnections();
-		if (connections.size() == 0 || this.getNrofMessages() == 0) {
+		if (cons.size() == 0 || this.getNrofMessages() == 0) {
 			return null;
 		}
 
 		List<Message> messages = 
 			new ArrayList<Message>(this.getMessageCollection());
 		this.sortByQueueMode(messages);
+                setMsgsPriorityAsForwarderPriority(messages);
 
-		return tryHarderMessagesToConnections(messages, connections);
+		return tryHarderMessagesToConnections(messages, cons);
+        }
+
+        public static void setMsgsPriorityAsForwarderPriority(List<Message> messages) {
+                for (Message msg: messages) {
+                        float priority = (float)msg.getProperty("priority");
+                        if (priority != null) {
+                                msg.updateForwarderPriority(priority);
+                        } else {
+                                msg.updateForwarderPriority(0.0);
+                        }
+                }
         }
 
         /** Like ActiveRouter.tryMessagesToConnections() but does not stop
@@ -271,15 +277,22 @@ public class MobyRouter extends ActiveRouter {
          * m's TTL. */
         public boolean createNewMessage(Message m) {
                 boolean added = super.createNewMessage(m);
+                // TTL randomization must be done after call to parent classes methods,
+                // otherwise the TTL is overwritten in parent classes.
+                randomizeTtl(m, this.ttlMeanTime, this.ttlStdDevTime, this.rand);
+                m.addProperty("type", "Moby"); // so that MobyApplication.handle() recognizes this is a Moby msg
                 this.getHost().incrementNbCommunicationsWith(m.getTo().toString());
-                randomizeTtl(m, ttlMeanTime, ttlStdDevTime, rng);
                 return added;
         }
 
-        public static void randomizeTtl(Message m, int meanTime, int stdDevTime, Random rng) {
-                int ttl = meanTime + (rng.nextGaussian() * stdDevTime); // TTL in seconds
+        public static void randomizeTtl(Message m, int meanTime, int stdDevTime, Random rand) {
+                int ttl = meanTime + (rand.nextGaussian() * stdDevTime); // TTL in seconds
                 m.setTtl(ttl / 60); // TTL in minutes
         }
 
+        public void removeLowestPriorityMessage() {
+                boolean reasonForRemoval = true; // true = message dropped, false = message delivered to final recipeint
+                deleteMessage(getNextMessageToRemove(false).getId(), reasonForRemoval);
+        }
 
 }

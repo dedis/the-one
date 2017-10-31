@@ -360,8 +360,16 @@ public class Message implements Comparable<Message> {
 		this.appID = appID;
 	}
 
+        /**
+         * Update the "priority" property of this message.
+         * Creating it at the same time if need be.
+         */
         public void updatePriority(float newPriority) {
-                // TODO
+                updateProperty("priority", newPriority);
+        }
+
+        public void updateForwarderPriority(float newForwarderPriority) {
+                updateProperty("forwarderPriority", newForwarderPriority);
         }
 	
 }

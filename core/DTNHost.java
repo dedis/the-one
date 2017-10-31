@@ -35,28 +35,36 @@ public class DTNHost implements Comparable<DTNHost> {
 	private ModuleCommunicationBus comBus;
 
         // Moby variables
+        private static final String MAX_NB_MOBY_CONTACTS_S = "maxnrofMobyContacts";
+        private static final int DEFAULT_MAX_NB_MOBY_CONTACTS = 126; // max nb of 256-bit hashes that can fit in a Bluetooth Classic packet's payload
+        private static final String MAX_NB_NON_MOBY_CONTACTS_S = "maxnrofNonMobyContacts";
+        private static final int DEFAULT_MAX_NB_NON_MOBY_CONTACTS = 126; // max nb of 256-bit hashes that can fit in a Bluetooth Classic packet's payload
+        private static final String TIME_REMEMBER_FORWARDED_MSG_S = "timeRememberForwardedMsgs";
+        private static final int DEFAULT_TIME_REMEMBER_FORWARDED_MSG = 172800; // Time (in seconds) before we forward again a message that we already forwarded
+
         // TODO LATER: there currently is no way to add/remove contacts during a simulation
-        private HashMap<String, List<Integer>> trustElements; // TODO
+        private Map<String, List<Integer>> trustElements;
         // FYI: trustElements.get(hostName) = List(nbCommonMobyContacts, nbCommonNonMobyContacts, nbCommunicationsWith)
-        private HashMap<String, Boolean> contactType; // TODO
+        private Map<String, Boolean> contactType;
         // contactType is a list of contacts, where true means it is a Moby contact, and false means it is a non-Moby contact
-        private HashMap<String, Integer> allForwardedMsgIds; // TODO
+        private Map<String, Integer> allForwardedMsgIds;
         // FYI: allForwardedMsgIds.get(msgId) = expiryDate (in seconds) of msgId
-        private int nbMobyContacts; // TODO
-        private int nbNonMobyContacts; // TODO
-        private int highestNbCommunications; // TODO
-        private int maxNbMobyContacts; // TODO
-        private int maxNbNonMobyContacts; // TODO
+        private int nbMobyContacts;
+        private int nbNonMobyContacts;
+        private int highestNbCommunications;
+        private int maxNbMobyContacts;
+        private int maxNbNonMobyContacts;
+        private int durationToKeepAlreadyForwardedMsgs; // time in seconds
+        private Random rand; // for selecting random subsets of (non-)Moby contacts
         private int lastForwardTime; // TODO LATER: output (as seconds) of SimClock.getIntTime()
         private int forwardIntervalTime; // TODO LATER: time interval (in seconds) to check if this host already did too many forwards of its message queue
-        private int durationToKeepAlreadyForwardedMsgs; // TODO: time in seconds
-        private Random rand; // TODO
+        private boolean isMobyInstance;
 
 	static {
 		DTNSim.registerForReset(DTNHost.class.getCanonicalName());
 		reset();
 	}
-	/**
+        /**
 	 * Creates a new DTNHost.
 	 * @param msgLs Message listeners
 	 * @param movLs Movement listeners
@@ -71,6 +79,7 @@ public class DTNHost implements Comparable<DTNHost> {
 			String groupId, List<NetworkInterface> interf,
 			ModuleCommunicationBus comBus, 
 			MovementModel mmProto, MessageRouter mRouterProto) {
+                this.isMobyInstance = False;
 		this.comBus = comBus;
 		this.location = new Coord(0,0);
 		this.address = getNextAddress();
@@ -105,6 +114,80 @@ public class DTNHost implements Comparable<DTNHost> {
 				l.initialLocation(this, this.location);
 			}
 		}
+        }
+
+	/**
+	 * Creates a new DTNHost.
+	 * @param msgLs Message listeners
+	 * @param movLs Movement listeners
+	 * @param groupId GroupID of this host
+	 * @param interf List of NetworkInterfaces for the class
+	 * @param comBus Module communication bus object
+	 * @param mmProto Prototype of the movement model of this host
+	 * @param mRouterProto Prototype of the message router of this host
+	 */
+	public DTNHost(List<MessageListener> msgLs,
+			List<MovementListener> movLs,
+			String groupId, List<NetworkInterface> interf,
+			ModuleCommunicationBus comBus, 
+			MovementModel mmProto, MessageRouter mRouterProto,
+                        long prngSeed, Settings MobySettings,
+                        Map<String, Boolean> contactsType, int highestNbComms,
+                        Map<String, List<Integer>> trustElts) {
+                this.isMobyInstance = True;
+		this.comBus = comBus;
+		this.location = new Coord(0,0);
+		this.address = getNextAddress();
+		this.name = groupId+address;
+		this.net = new ArrayList<NetworkInterface>();
+
+		for (NetworkInterface i : interf) {
+			NetworkInterface ni = i.replicate();
+			ni.setHost(this);
+			net.add(ni);
+		}	
+
+		// TODO - think about the names of the interfaces and the nodes
+		//this.name = groupId + ((NetworkInterface)net.get(1)).getAddress();
+
+		this.msgListeners = msgLs;
+		this.movListeners = movLs;
+
+		// create instances by replicating the prototypes
+		this.movement = mmProto.replicate();
+		this.movement.setComBus(comBus);
+		this.movement.setHost(this);
+		setRouter(mRouterProto.replicate());
+
+		this.location = movement.getInitialLocation();
+
+		this.nextTimeToMove = movement.nextPathAvailable();
+		this.path = null;
+
+		if (movLs != null) { // inform movement listeners about the location
+			for (MovementListener l : movLs) {
+				l.initialLocation(this, this.location);
+			}
+		}
+
+                this.rand = new Random(prngSeed);
+                this.allForwardedMsgIds = new HashMap<>();
+                this.trustElements = trustElts;
+                this.highestNbCommunications = highestNbComms;
+                this.contactType = contactsType;
+                this.nbMobyContacts; // TODO
+                this.nbNonMobyContacts; // TODO
+
+                this.maxNbMobyContacts = mobySettings.getInt(MAX_NB_MOBY_CONTACTS_S, DEFAULT_MAX_NB_MOBY_CONTACTS);
+                Settings.ensurePositiveValue((double)this.maxNbMobyContacts, MAX_NB_MOBY_CONTACTS_S);
+                this.maxNbNonMobyContacts = mobySettings.getInt(MAX_NB_NON_MOBY_CONTACTS_S, DEFAULT_MAX_NB_NON_MOBY_CONTACTS);
+                Settings.ensurePositiveValue((double)this.maxNbNonMobyContacts, MAX_NB_NON_MOBY_CONTACTS_S);
+                this.durationToKeepAlreadyForwardedMsgs = mobySettings.getInt(TIME_REMEMBER_FORWARDED_MSG_S, DEFAULT_TIME_REMEMBER_FORWARDED_MSG);
+                Settings.ensurePositiveValue((double)this.durationToKeepAlreadyForwardedMsgs, TIME_REMEMBER_FORWARDED_MSG_S);
+
+                // TODO LATER: manage rate limiting of the number of times we perform forward over a period of time
+                /*this.lastForwardTime; // output (as seconds) of SimClock.getIntTime()*/
+                /*this.forwardIntervalTime; // time interval (in seconds) to check if this host already did too many forwards of its message queue*/
 	}
 	
 	/**
@@ -126,8 +209,7 @@ public class DTNHost implements Comparable<DTNHost> {
 	/**
 	 * Returns true if this node is actively moving (false if not)
 	 * @return true if this node is actively moving (false if not)
-	 */
-	public boolean isMovementActive() {
+	 */ public boolean isMovementActive() {
 		return this.movement.isActive();
 	}
 	
@@ -512,7 +594,11 @@ public class DTNHost implements Comparable<DTNHost> {
 	 * @param m The message to create
 	 */
 	public void createNewMessage(Message m) {
-		this.router.createNewMessage(m);
+                if (this.isMobyInstance) {
+                        this.(MobyRouter router).createNewMessage(m);
+                } else {
+                        this.router.createNewMessage(m);
+                }
 	}
 
 	/**
@@ -723,7 +809,7 @@ public class DTNHost implements Comparable<DTNHost> {
         }
 
         public boolean tooManyForwardsInInterval(int currentTime) {
-                // TODO: for now, no rate limiting, always return false
+                // TODO LATER: for now, no rate limiting, always return false
                 return false;
         }
 
