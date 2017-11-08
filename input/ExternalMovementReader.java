@@ -9,6 +9,7 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.regex.Pattern;
 
 import util.Tuple;
 
@@ -66,7 +67,12 @@ public class ExternalMovementReader {
 					"file " + inFile);
 		}
 		
+		// skip empty and comment lines
+		Pattern skipPattern = Pattern.compile("(#.*)|(^\\s*$)");
 		String offsets = scanner.nextLine();
+                while (skipPattern.matcher(offsets).matches()) {
+                        offsets = scanner.nextLine();
+                }
 	
 		try {
 			Scanner lineScan = new Scanner(offsets);

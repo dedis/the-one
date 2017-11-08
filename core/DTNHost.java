@@ -7,11 +7,17 @@ package core;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Random;
 
 import movement.MovementModel;
 import movement.Path;
 import routing.MessageRouter;
 import routing.util.RoutingInfo;
+import routing.MobyRouter;
 
 /**
  * A DTN capable host.
@@ -79,7 +85,7 @@ public class DTNHost implements Comparable<DTNHost> {
 			String groupId, List<NetworkInterface> interf,
 			ModuleCommunicationBus comBus, 
 			MovementModel mmProto, MessageRouter mRouterProto) {
-                this.isMobyInstance = False;
+                this.isMobyInstance = false;
 		this.comBus = comBus;
 		this.location = new Coord(0,0);
 		this.address = getNextAddress();
@@ -131,10 +137,10 @@ public class DTNHost implements Comparable<DTNHost> {
 			String groupId, List<NetworkInterface> interf,
 			ModuleCommunicationBus comBus, 
 			MovementModel mmProto, MessageRouter mRouterProto,
-                        long prngSeed, Settings MobySettings,
+                        long prngSeed, Settings mobySettings,
                         Map<String, Boolean> contactsType, int highestNbComms,
                         Map<String, List<Integer>> trustElts) {
-                this.isMobyInstance = True;
+                this.isMobyInstance = true;
 		this.comBus = comBus;
 		this.location = new Coord(0,0);
 		this.address = getNextAddress();
@@ -175,15 +181,15 @@ public class DTNHost implements Comparable<DTNHost> {
                 this.trustElements = trustElts;
                 this.highestNbCommunications = highestNbComms;
                 this.contactType = contactsType;
-                this.nbMobyContacts; // TODO
-                this.nbNonMobyContacts; // TODO
+                this.nbMobyContacts = this.getMobyContacts().size();
+                this.nbNonMobyContacts = this.getNonMobyContacts().size();
 
                 this.maxNbMobyContacts = mobySettings.getInt(MAX_NB_MOBY_CONTACTS_S, DEFAULT_MAX_NB_MOBY_CONTACTS);
-                Settings.ensurePositiveValue((double)this.maxNbMobyContacts, MAX_NB_MOBY_CONTACTS_S);
+                //Settings.ensurePositiveValue((double)this.maxNbMobyContacts, MAX_NB_MOBY_CONTACTS_S);
                 this.maxNbNonMobyContacts = mobySettings.getInt(MAX_NB_NON_MOBY_CONTACTS_S, DEFAULT_MAX_NB_NON_MOBY_CONTACTS);
-                Settings.ensurePositiveValue((double)this.maxNbNonMobyContacts, MAX_NB_NON_MOBY_CONTACTS_S);
+                //Settings.ensurePositiveValue((double)this.maxNbNonMobyContacts, MAX_NB_NON_MOBY_CONTACTS_S);
                 this.durationToKeepAlreadyForwardedMsgs = mobySettings.getInt(TIME_REMEMBER_FORWARDED_MSG_S, DEFAULT_TIME_REMEMBER_FORWARDED_MSG);
-                Settings.ensurePositiveValue((double)this.durationToKeepAlreadyForwardedMsgs, TIME_REMEMBER_FORWARDED_MSG_S);
+                //Settings.ensurePositiveValue((double)this.durationToKeepAlreadyForwardedMsgs, TIME_REMEMBER_FORWARDED_MSG_S);
 
                 // TODO LATER: manage rate limiting of the number of times we perform forward over a period of time
                 /*this.lastForwardTime; // output (as seconds) of SimClock.getIntTime()*/
@@ -595,7 +601,8 @@ public class DTNHost implements Comparable<DTNHost> {
 	 */
 	public void createNewMessage(Message m) {
                 if (this.isMobyInstance) {
-                        this.(MobyRouter router).createNewMessage(m);
+                        MobyRouter r = (MobyRouter) this.router;
+                        r.createNewMessage(m);
                 } else {
                         this.router.createNewMessage(m);
                 }
@@ -641,7 +648,7 @@ public class DTNHost implements Comparable<DTNHost> {
 
         
         public int getNbCommonMobyContacts(String hostName) {
-                if (trustElements.contains(hostName)) {
+                if (trustElements.containsKey(hostName)) {
                         return trustElements.get(hostName).get(0);
                 } else {
                         return -1;
@@ -649,7 +656,7 @@ public class DTNHost implements Comparable<DTNHost> {
         }
 
         public int getNbCommonNonMobyContacts(String hostName) {
-                if (trustElements.contains(hostName)) {
+                if (trustElements.containsKey(hostName)) {
                         return trustElements.get(hostName).get(1);
                 } else {
                         return -1;
@@ -657,7 +664,7 @@ public class DTNHost implements Comparable<DTNHost> {
         }
 
         public int getNbCommunicationsWith(String hostName) {
-                if (trustElements.contains(hostName)) {
+                if (trustElements.containsKey(hostName)) {
                         return trustElements.get(hostName).get(2);
                 } else {
                         return -1;
@@ -665,20 +672,20 @@ public class DTNHost implements Comparable<DTNHost> {
         }
 
         public void incrementNbCommunicationsWith(String hostName) {
-                if (trustElements.contains(hostName)) {
-                        nbComms = trustElements.get(hostName).get(2);
+                if (trustElements.containsKey(hostName)) {
+                        int nbComms = trustElements.get(hostName).get(2);
                         trustElements.get(hostName).set(2, nbComms++);
                         
                         // checking if highestNbCommunications needs updating
-                        if (nbComms > highestNbCommunications) {
-                                highestNbCommunications = nbComms;
+                        if (nbComms > this.highestNbCommunications) {
+                                this.highestNbCommunications = nbComms;
                         }
                 } else {
                         // Error, throw exception? TODO
                 }
         }
 
-        public int getActualOrMaxNbMobyContacts(int maximum) {
+        public int getActualOrMaxNbMobyContacts() {
                 // Counting Moby contacts
                 if (nbMobyContacts == -1) {
                         nbMobyContacts = 0;
@@ -689,14 +696,14 @@ public class DTNHost implements Comparable<DTNHost> {
                         }
                 }
                 // Checking whether to cap the returned result
-                if (nbMobyContacts > maximum) {
-                        return maximum;
+                if (nbMobyContacts > maxNbMobyContacts) {
+                        return maxNbMobyContacts;
                 } else {
                         return nbMobyContacts;
                 }
         }
         
-        public int getActualOrMaxNbNonMobyContacts(int maximum) {
+        public int getActualOrMaxNbNonMobyContacts() {
                 // Counting Moby contacts
                 if (nbNonMobyContacts == -1) {
                         nbNonMobyContacts = 0;
@@ -707,8 +714,8 @@ public class DTNHost implements Comparable<DTNHost> {
                         }
                 }
                 // Checking whether to cap the returned result
-                if (nbNonMobyContacts > maximum) {
-                        return maximum;
+                if (nbNonMobyContacts > maxNbNonMobyContacts) {
+                        return maxNbNonMobyContacts;
                 } else {
                         return nbNonMobyContacts;
                 }
@@ -728,17 +735,17 @@ public class DTNHost implements Comparable<DTNHost> {
                 }
         }
 
-        public static void updateNbCommonContacts(DTNHost thisHost, DTNHost neighorHost) {
-                Set<String> mobyContactsA = thisHost.getMobyContactsRandSubset(maxNbMobyContacts);
-                Set<String> mobyContactsB = neighborHost.getMobyContacts(maxNbMobyContacts);
+        public static void updateNbCommonContacts(DTNHost thisHost, DTNHost neighborHost) {
+                Set<String> mobyContactsA = thisHost.getMobyContactsRandSubset(thisHost.getMaxNbMobyContacts());
+                Set<String> mobyContactsB = neighborHost.getMobyContactsRandSubset(neighborHost.getMaxNbMobyContacts());
                 Set<String> commonMobyContacts = new HashSet<>(mobyContactsA);
                 commonMobyContacts.retainAll(mobyContactsB);
                 int nbCommonMobyContacts = commonMobyContacts.size();
                 thisHost.updateNbCommonMobyContacts(neighborHost.toString(), nbCommonMobyContacts);
                 neighborHost.updateNbCommonMobyContacts(thisHost.toString(), nbCommonMobyContacts);
 
-                Set<String> nonMobyContactsA = thisHost.getNonMobyContacts(maxNbNonMobyContacts);
-                Set<String> nonMobyContactsB = neighborHost.getNonMobyContacts(maxNbNonMobyContacts);
+                Set<String> nonMobyContactsA = thisHost.getNonMobyContactsRandSubset(thisHost.getMaxNbNonMobyContacts());
+                Set<String> nonMobyContactsB = neighborHost.getNonMobyContactsRandSubset(neighborHost.getMaxNbNonMobyContacts());
                 Set<String> commonNonMobyContacts = new HashSet<>(nonMobyContactsA);
                 commonNonMobyContacts.retainAll(nonMobyContactsB);
                 int nbCommonNonMobyContacts = commonNonMobyContacts.size();
@@ -747,14 +754,14 @@ public class DTNHost implements Comparable<DTNHost> {
         }
 
         public void updateNbCommonMobyContacts(String hostName, int nbCommonMobyContacts) {
-                if (!trustElements.contains(hostName)) {
+                if (!trustElements.containsKey(hostName)) {
                         initNewContactTrustElements(hostName);
                 }
                 trustElements.get(hostName).set(0, nbCommonMobyContacts);
         }
 
         private void initNewContactTrustElements(String hostName) {
-                elements = new ArrayList<Integer>(3);
+                List<Integer> elements = new ArrayList<>(3);
                 elements.add(0);
                 elements.add(0);
                 elements.add(0);
@@ -762,7 +769,7 @@ public class DTNHost implements Comparable<DTNHost> {
         }
 
         public void updateNbCommonNonMobyContacts(String hostName, int nbCommonNonMobyContacts) {
-                if (!trustElements.contains(hostName)) {
+                if (!trustElements.containsKey(hostName)) {
                         initNewContactTrustElements(hostName);
                 }
                 trustElements.get(hostName).set(1, nbCommonNonMobyContacts);
@@ -780,6 +787,10 @@ public class DTNHost implements Comparable<DTNHost> {
 
         public Set<String> getMobyContactsRandSubset(int maxNbMobyContacts) {
                 List<String> mobyContacts = new ArrayList<>(getMobyContacts());
+                if (mobyContacts.size() <= maxNbMobyContacts) {
+                        return new HashSet<String>(mobyContacts);
+                }
+
                 Set<String> result = new HashSet<>(maxNbMobyContacts);
                 for (int i = 0; i < maxNbMobyContacts; i++) {
                         int randIndex = rand.nextInt(mobyContacts.size());
@@ -800,6 +811,10 @@ public class DTNHost implements Comparable<DTNHost> {
 
         public Set<String> getNonMobyContactsRandSubset(int maxNbNonMobyContacts) {
                 List<String> nonMobyContacts = new ArrayList<>(getNonMobyContacts());
+                if (nonMobyContacts.size() <= maxNbNonMobyContacts) {
+                        return new HashSet<String>(nonMobyContacts);
+                }
+
                 Set<String> result = new HashSet<>(maxNbNonMobyContacts);
                 for (int i = 0; i < maxNbNonMobyContacts; i++) {
                         int randIndex = rand.nextInt(nonMobyContacts.size());
@@ -819,6 +834,14 @@ public class DTNHost implements Comparable<DTNHost> {
                                 allForwardedMsgIds.remove(msgId);
                         }
                 }
+        }
+
+        public int getMaxNbMobyContacts() {
+                return this.maxNbMobyContacts;
+        }
+
+        public int getMaxNbNonMobyContacts() {
+                return this.maxNbNonMobyContacts;
         }
 
 }

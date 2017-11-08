@@ -46,7 +46,7 @@ public abstract class ActiveRouter extends MessageRouter {
 	/** sim time when the last TTL check was done */
 	private double lastTtlCheck;
 	
-	private MessageTransferAcceptPolicy policy;
+	protected MessageTransferAcceptPolicy policy;
 	private EnergyModel energy;
 
 	/**

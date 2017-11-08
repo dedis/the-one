@@ -84,7 +84,7 @@ public abstract class MessageRouter {
 	public static final int DENIED_UNSPECIFIED = -99;
 
         // Moby-specific
-        private Random rand;
+        protected Random rand;
 	
 	private List<MessageListener> mListeners;
 	/** The messages being transferred with msgID_hostName keys */
@@ -194,7 +194,7 @@ public abstract class MessageRouter {
 	 * @param id ID of the message
 	 * @return The message
 	 */
-	protected Message getMessage(String id) {
+	public Message getMessage(String id) {
 		return this.messages.get(id);
 	}
 	
@@ -561,7 +561,9 @@ public abstract class MessageRouter {
 		return list;
 	}
 
+        @SuppressWarnings("unchecked")
         protected Message castObjAsMessage(Object o) {
+                Message m = null;
                 if (o instanceof Tuple) {
                         m = ((Tuple<Message, Connection>)o).getKey();
                 }
@@ -596,9 +598,8 @@ public abstract class MessageRouter {
 			return (diff < 0 ? -1 : 1);
 		/* add more queue modes here */
                 case Q_MODE_PRIORITY:
-                        double diff;
-                        float m1Priority = (float)m1.getProperty("priority");
-                        float m2Priority = (float)m2.getProperty("priority");
+                        Float m1Priority = (Float)m1.getProperty("priority");
+                        Float m2Priority = (Float)m2.getProperty("priority");
                         if (m1Priority != null && m2Priority != null) {
                                 diff = m1Priority - m2Priority;
                                 if (diff == 0) {
@@ -608,7 +609,6 @@ public abstract class MessageRouter {
                         } else {
                                 throw new SimError("Some message(s) do not have a priority property");
                         }
-                        break;
 		default:
 			throw new SimError("Unknown queue mode " + sendQueueMode);
 		}

@@ -6,6 +6,7 @@
 package applications;
 
 import java.util.Random;
+import java.util.List;
 
 //import report.PingAppReporter;
 import core.Application;
@@ -15,6 +16,7 @@ import core.Settings;
 import core.SimClock;
 import core.SimScenario;
 import core.World;
+import routing.MobyRouter;
 
 /**
  * Simple ping application to demonstrate the application support. The 
@@ -64,25 +66,25 @@ public class MobyApplication extends Application {
 	//private Random	rng;
 
         private static final String TRUST_WEIGHT_OF_MOBY_CONTACTS_S = "trustWeightMobyContacts";
-        private static final String TRUST_WEIGHT_OF_NON_MOBY_CONTACTS_S = "trustWeightMobyContacts";
+        private static final String TRUST_WEIGHT_OF_NON_MOBY_CONTACTS_S = "trustWeightNonMobyContacts";
         private static final String TRUST_WEIGHT_OF_NB_COMMUNICATIONS_S = "trustWeightnrofCommunications";
         private static final String MAX_NB_MOBY_CONTACTS_S = "maxnrofMobyContacts";
         private static final String MAX_NB_NON_MOBY_CONTACTS_S = "maxnrofNonMobyContacts";
-        private static final String TTL_MEAN_TIME_S = "ttlMeanTime";
-        private static final String TTL_STD_DEV_TIME_S = "ttlStdDevTime";
+        /*private static final String TTL_MEAN_TIME_S = "ttlMeanTime";*/
+        /*private static final String TTL_STD_DEV_TIME_S = "ttlStdDevTime";*/
 
         /** Importance factor of the number of common Moby contacts in trust score */
-        private float alpha = 0.3;
+        private static float alpha = (float) 0.3;
         /** Importance factor of the number of common non-Moby contacts in trust score */
-        private float beta = 0.2;
+        private static float beta = (float) 0.2;
         /** Importance factor of the number of communications in trust score */
-        private float gamma = 0.5;
+        private static float gamma = (float) 0.5;
         /** Maximum number of Moby contacts in the input sets of PSI-CA */
-        private int maxNbMobyContacts = 100;
+        private int maxNbMobyContacts = 100; // DEPRECATED, can be removed
         /** Maximum number of non-Moby contacts in the input sets of PSI-CA */
-        private int maxNbNonMobyContacts = 100;
-        /** Maximum possible TTL (in minutes) for Moby messages */
-        private int maxTtl = 96 * 60;
+        private int maxNbNonMobyContacts = 100; // DEPRECATED, can be removed
+        /*[>* Maximum possible TTL (in minutes) for Moby messages <]*/
+        /*private int maxTtl = 96 * 60;*/
 	
 	/** 
 	 * Creates a new Moby application with the given settings.
@@ -90,21 +92,21 @@ public class MobyApplication extends Application {
 	 * @param s	Settings to use for initializing the application.
 	 */
 	public MobyApplication(Settings s) {
-                this.alpha = s.getDouble(TRUST_WEIGHT_OF_MOBY_CONTACTS_S);
-                Settings.ensurePositiveValue(this.alpha, TRUST_WEIGHT_OF_MOBY_CONTACTS_S);
-                this.beta = s.getDouble(TRUST_WEIGHT_OF_NON_MOBY_CONTACTS_S);
-                Settings.ensurePositiveValue(this.beta, TRUST_WEIGHT_OF_NON_MOBY_CONTACTS_S);
-                this.gamma = s.getDouble(TRUST_WEIGHT_OF_NB_COMMUNICATIONS_S);
-                Settings.ensurePositiveValue(this.gamma, TRUST_WEIGHT_OF_NB_COMMUNICATIONS_S);
+                this.alpha = (float) s.getDouble(TRUST_WEIGHT_OF_MOBY_CONTACTS_S);
+                //SettList.ensurePositiveValue(this.alpha, TRUST_WEIGHT_OF_MOBY_CONTACTS_S);
+                this.beta = (float) s.getDouble(TRUST_WEIGHT_OF_NON_MOBY_CONTACTS_S);
+                //Settings.ensurePositiveValue(this.beta, TRUST_WEIGHT_OF_NON_MOBY_CONTACTS_S);
+                this.gamma = (float) s.getDouble(TRUST_WEIGHT_OF_NB_COMMUNICATIONS_S);
+                //Settings.ensurePositiveValue(this.gamma, TRUST_WEIGHT_OF_NB_COMMUNICATIONS_S);
                 this.maxNbMobyContacts = s.getInt(MAX_NB_MOBY_CONTACTS_S);
-                Settings.ensurePositiveValue((double)this.maxNbMobyContacts, MAX_NB_MOBY_CONTACTS_S);
+                //Settings.ensurePositiveValue((double)this.maxNbMobyContacts, MAX_NB_MOBY_CONTACTS_S);
                 this.maxNbNonMobyContacts = s.getInt(MAX_NB_NON_MOBY_CONTACTS_S);
-                Settings.ensurePositiveValue((double)this.maxNbNonMobyContacts, MAX_NB_NON_MOBY_CONTACTS_S);
-                int ttlMeanTime = s.getInt(TTL_MEAN_TIME_S);
-                Settings.ensurePositiveValue((double)ttlMeanTime, TTL_MEAN_TIME_S);
-                int ttlStdDevTime = s.getInt(TTL_STD_DEV_TIME_S);
-                Settings.ensurePositiveValue((double)ttlStdDevTime, TTL_STD_DEV_TIME_S);
-                this.maxTtl = (ttlMeanTime + ttlStdDevTime) * 60;
+                //Settings.ensurePositiveValue((double)this.maxNbNonMobyContacts, MAX_NB_NON_MOBY_CONTACTS_S);
+                /*int ttlMeanTime = s.getInt(TTL_MEAN_TIME_S);*/
+                ////Settings.ensurePositiveValue((double)ttlMeanTime, TTL_MEAN_TIME_S);
+                //int ttlStdDevTime = s.getInt(TTL_STD_DEV_TIME_S);
+                ////Settings.ensurePositiveValue((double)ttlStdDevTime, TTL_STD_DEV_TIME_S);
+                /*this.maxTtl = (ttlMeanTime + ttlStdDevTime) * 60;*/
 
 		/*if (s.contains(PING_PASSIVE)){*/
 			//this.passive = s.getBoolean(PING_PASSIVE);
@@ -156,7 +158,7 @@ public class MobyApplication extends Application {
                 this.gamma = a.gamma;
                 this.maxNbMobyContacts = a.maxNbMobyContacts;
                 this.maxNbNonMobyContacts = a.maxNbNonMobyContacts;
-                this.maxTtl = a.maxTtl;
+                //this.maxTtl = a.maxTtl;
 	}
 	
 	/** 
@@ -175,6 +177,8 @@ public class MobyApplication extends Application {
 		
 		if (type.equalsIgnoreCase("Moby")) {
                         // Check TTL is not too long
+                        MobyRouter r = (MobyRouter) host.getRouter();
+                        int maxTtl = r.getMaxTtl();
                         if (msg.getTtl() > maxTtl) {
                                 return null;
                         }
@@ -192,14 +196,14 @@ public class MobyApplication extends Application {
                         float trustInForwarder = computeTrustScore(host, forwarderHost);
 
                         // Compute msg's priority
-                        float msgPriority = computeMsgPriority(msg, trustInForwarder);
+                        float msgPriority = computeMsgPriority(msg, trustInForwarder, maxTtl);
                         msg.updatePriority(msgPriority);
                         
                         // Check msg is already in host's queue & with what priority
                         MobyRouter hostRouter = (MobyRouter)host.getRouter();
                         if (hostRouter.hasMessage(msgId)) {
                                 Message msg2 = hostRouter.getMessage(msgId);
-                                float msg2Priority = (float)msg2.getProperty("priority");
+                                Float msg2Priority = (Float)msg2.getProperty("priority");
                                 if (msg2Priority != null && msg2Priority > msgPriority) {
                                         msg.updatePriority(msg2Priority);
                                 }
@@ -376,45 +380,49 @@ public class MobyApplication extends Application {
 	/*}*/
 
         // This function assumes host.nbCommon*Contacts have already been updated via PSI computation at this point
-        public static float computeTrustScore(host, forwarderHost) {
-                nbCommonMobyContactsWithForwarder = host.getNbCommonMobyContacts(forwarderHost.toString());
-                nbCommonNonMobyContactsWithForwarder = host.getNbCommonNonMobyContacts(forwarderHost.toString());
-                nbCommsWithForwarder = host.getNbCommunicationsWith(forwarderHost.toString());
+        public static float computeTrustScore(DTNHost host, DTNHost forwarderHost) {
+                int nbCommonMobyContactsWithForwarder = host.getNbCommonMobyContacts(forwarderHost.toString());
+                int nbCommonNonMobyContactsWithForwarder = host.getNbCommonNonMobyContacts(forwarderHost.toString());
+                int nbCommsWithForwarder = host.getNbCommunicationsWith(forwarderHost.toString());
 
-                nbMobyContacts = host.getActualOrMaxNbMobyContacts(maxNbMobyContacts);
-                nbNonMobyContacts = host.getActualOrMaxNbNonMobyContacts(maxNbNonMobyContacts);
-                highestNbComms = host.getHighestNbCommunications()
+                int nbMobyContacts = host.getActualOrMaxNbMobyContacts();
+                int nbNonMobyContacts = host.getActualOrMaxNbNonMobyContacts();
+                int highestNbComms = host.getHighestNbCommunications();
 
+                float commonMobyContactsFactor;
+                float commonNonMobyContactsFactor;
+                float nbCommsFactor;
                 if (nbMobyContacts == 0) {
-                        commonMobyContactsFactor = 0.0;
+                        commonMobyContactsFactor = (float) 0.0;
                 } else {
                         commonMobyContactsFactor = alpha * (nbCommonMobyContactsWithForwarder / nbMobyContacts);
                 }
                 if (nbNonMobyContacts == 0) {
-                        commonNonMobyContactsFactor = 0.0;
+                        commonNonMobyContactsFactor = (float) 0.0;
                 } else {
-                        commonNonMobyContactsFactor = beta * (nbCommonNonMobyContactsWithForwarder / nbNonMobyContacts) 
+                        commonNonMobyContactsFactor = beta * (nbCommonNonMobyContactsWithForwarder / nbNonMobyContacts);
                 }
                 if (highestNbComms == 0) {
-                        nbCommsFactor = 0.0;
+                        nbCommsFactor = (float) 0.0;
                 } else {
                         nbCommsFactor = gamma * (nbCommsWithForwarder / highestNbComms);
                 }
                 return commonMobyContactsFactor + commonNonMobyContactsFactor + nbCommsFactor;
         }
 
-        public static float computeMsgPriority(msg, trustInForwarder) {
-                ttl = msg.getTtl(); // time in minutes
-                timeFactor = 0.25 * (1 - ttl / maxTtl);
+        public float computeMsgPriority(Message msg, float trustInForwarder, int maxTtl) {
+                int ttl = msg.getTtl(); // time in minutes
+                float timeFactor = (float) 0.25 * (1 - ttl / maxTtl);
                 
-		float forwarderPriority = (float)msg.getProperty("forwarderPriority");
+		Float forwarderPriority = (Float)msg.getProperty("forwarderPriority");
+                float forwarderPriorityFactor;
 		if (forwarderPriority==null) { // Should not happen
                         forwarderPriorityFactor = 0;
                 } else {
-                        forwarderPriorityFactor = 0.25 * forwarderPriority;
+                        forwarderPriorityFactor = (float) 0.25 * forwarderPriority;
                 }
 
-                return 0.5 * trustInForwarder + timeFactor + forwarderPriorityFactor;
+                return (float) 0.5 * trustInForwarder + timeFactor + forwarderPriorityFactor;
         }
 
 }

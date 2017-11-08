@@ -4,7 +4,18 @@
  */
 package routing;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.TreeMap;
+import java.util.Random;
+
 import core.Settings;
+import core.Connection;
+import core.DTNHost;
+import core.Message;
+import core.SimClock;
+import applications.MobyApplication;
 
 /**
  * Epidemic message router with drop-oldest buffer and only single transferring
@@ -20,7 +31,7 @@ public class MobyRouter extends ActiveRouter {
         private float lowestPriority;
         /** Number of connections/hosts in communication range, above which we
          * select the most trustworthy ones to forward our message queue. */
-        private integer maxNbConnectionsForForward;
+        private int maxNbConnectionsForForward;
         private int ttlMeanTime; // in seconds
         private int ttlStdDevTime; // in seconds
 	
@@ -31,13 +42,13 @@ public class MobyRouter extends ActiveRouter {
 	 */
 	public MobyRouter(Settings s) {
 		super(s);
-                this.lowestPriority = 1.0;
+                this.lowestPriority = (float) 1.0;
                 this.maxNbConnectionsForForward = s.getInt(MAX_NB_CONNECTIONS_FOR_FORWARD_S);
-                Settings.ensurePositiveValue((double)this.maxNbConnectionsForForward, MAX_NB_CONNECTIONS_FOR_FORWARD_S);
+                //Settings.ensurePositiveValue((double)this.maxNbConnectionsForForward, MAX_NB_CONNECTIONS_FOR_FORWARD_S);
                 this.ttlMeanTime = s.getInt(TTL_MEAN_TIME_S);
-                Settings.ensurePositiveValue((double)this.ttlMeanTime, TTL_MEAN_TIME_S);
+                //Settings.ensurePositiveValue((double)this.ttlMeanTime, TTL_MEAN_TIME_S);
                 this.ttlStdDevTime = s.getInt(TTL_STD_DEV_TIME_S);
-                Settings.ensurePositiveValue((double)this.ttlStdDevTime, TTL_STD_DEV_TIME_S);
+                //Settings.ensurePositiveValue((double)this.ttlStdDevTime, TTL_STD_DEV_TIME_S);
 	}
 	
 	/**
@@ -77,17 +88,17 @@ public class MobyRouter extends ActiveRouter {
 	}
 
         /** Returns a list of connections in decreasing order of trust score. */
-        protected List<Connection> selectMostTrustworthy(List<Connection> cons, integer maxNbConnections) {
+        protected List<Connection> selectMostTrustworthy(List<Connection> cons, int maxNbConnections) {
                 DTNHost thisHost = this.getHost();
-                SortedMap<Float, List<Connection>> consSortedByTrust = buildTrustSortedConnectionMap(cons, thisHost);
+                TreeMap<Float, List<Connection>> consSortedByTrust = buildTrustSortedConnectionMap(cons, thisHost);
                 return buildTrustSortedList(consSortedByTrust, maxNbConnections);
         }
 
-        protected static SortedMap<Float, List<Connection>> buildTrustSortedConnectionMap(List<Connection> cons, DTNHost thisHost) {
-                SortedMap<Float, List<Connection>> consSortedByTrust = new TreeMap<>();
+        protected static TreeMap<Float, List<Connection>> buildTrustSortedConnectionMap(List<Connection> cons, DTNHost thisHost) {
+                TreeMap<Float, List<Connection>> consSortedByTrust = new TreeMap<>();
                 for (Connection con: cons) {
                         DTNHost neighborHost = con.getOtherNode(thisHost);
-                        DTNHost.updateNbCommonContacts(thisHost, neighorHost);
+                        DTNHost.updateNbCommonContacts(thisHost, neighborHost);
                         float trustScore = MobyApplication.computeTrustScore(thisHost, neighborHost);
                         consSortedByTrust.putIfAbsent(trustScore, new ArrayList<Connection>());
                         consSortedByTrust.get(trustScore).add(con);
@@ -95,11 +106,11 @@ public class MobyRouter extends ActiveRouter {
                 return consSortedByTrust;
         }
 
-        protected static List<Connection> buildTrustSortedList(SortedMap<Float, List<Connection>> consSortedByTrust, maxNbConnections) {
+        protected static List<Connection> buildTrustSortedList(TreeMap<Float, List<Connection>> consSortedByTrust, int maxNbConnections) {
                 List<Connection> mostTrustworthyCons = new ArrayList<>(maxNbConnections);
-                reachedMaxNbCons = false;
+                boolean reachedMaxNbCons = false;
                 while (!reachedMaxNbCons) {
-                        List<Connection> consWithHighestTrust = consSortedByTrust.pollLastEntry();
+                        List<Connection> consWithHighestTrust = consSortedByTrust.pollLastEntry().getValue();
                         if (consWithHighestTrust.size() + mostTrustworthyCons.size() < maxNbConnections) {
                                 mostTrustworthyCons.addAll(consWithHighestTrust);
                         } else {
@@ -135,11 +146,11 @@ public class MobyRouter extends ActiveRouter {
 
         public static void setMsgsPriorityAsForwarderPriority(List<Message> messages) {
                 for (Message msg: messages) {
-                        float priority = (float)msg.getProperty("priority");
+                        Float priority = (Float)msg.getProperty("priority");
                         if (priority != null) {
                                 msg.updateForwarderPriority(priority);
                         } else {
-                                msg.updateForwarderPriority(0.0);
+                                msg.updateForwarderPriority((float)0.0);
                         }
                 }
         }
@@ -151,7 +162,7 @@ public class MobyRouter extends ActiveRouter {
                 List<Connection> successfullyTransmitted = new ArrayList<Connection>();
 		for (int i=0, n=connections.size(); i<n; i++) {
 			Connection con = connections.get(i);
-                        successSendingToCon = tryHarderAllMessages(con, messages);
+                        boolean successSendingToCon = tryHarderAllMessages(con, messages);
                         if (successSendingToCon) {
                                 successfullyTransmitted.add(con);
                         }
@@ -163,12 +174,12 @@ public class MobyRouter extends ActiveRouter {
         /** Like ActiveRouter.tryAllMessages() but does not stop after the
          * first successfully transfered message. */
         protected boolean tryHarderAllMessages(Connection con, List<Message> messages) {
-                successfullyTransmittedOneOrMoreMessages = false;
-                List<Message> msgList = new ArrayList(messages);
+                boolean successfullyTransmittedOneOrMoreMessages = false;
+                List<Message> msgList = new ArrayList<>(messages);
 
-                msgListSize = msgList.size();
+                int msgListSize = msgList.size();
                 while (msgListSize > 0) {
-                        m = msgList.get(0)
+                        Message m = msgList.get(0);
                         int retVal = startTransferSingleConnection(m, con); 
                         if (retVal == RCV_OK) { // accepted the message
                                 msgList.remove(m);
@@ -232,9 +243,9 @@ public class MobyRouter extends ActiveRouter {
 
         /** This function must be called every time a new message is added to the queue. */
         public void updateLowestPriority() {
-                Message m = getNextMessageToRemove();
+                Message m = getNextMessageToRemove(false);
                 if (m != null) {
-                        float priority = (float)m.getProperty("priority");
+                        Float priority = (Float)m.getProperty("priority");
                         if (priority != null) {
                                 lowestPriority = priority;
                         }
@@ -242,7 +253,7 @@ public class MobyRouter extends ActiveRouter {
         }
 
         
-	protected void addToMessages(Message m, boolean newMessage) {
+	public void addToMessages(Message m, boolean newMessage) {
                 super.addToMessages(m, newMessage);
                 updateLowestPriority();
         }
@@ -261,8 +272,8 @@ public class MobyRouter extends ActiveRouter {
 				lowestPriority = m;
 			}
 			else {
-                                float currentPriority = (float)lowestPriority.getProperty("priority");
-                                float mPriority = (float)m.getProperty("priority");
+                                Float currentPriority = (Float)lowestPriority.getProperty("priority");
+                                Float mPriority = (Float)m.getProperty("priority");
                                 if (currentPriority != null && mPriority != null && currentPriority > mPriority) {
                                         lowestPriority = m;
                                 }
@@ -286,13 +297,18 @@ public class MobyRouter extends ActiveRouter {
         }
 
         public static void randomizeTtl(Message m, int meanTime, int stdDevTime, Random rand) {
-                int ttl = meanTime + (rand.nextGaussian() * stdDevTime); // TTL in seconds
+                int ttl = meanTime + (int) (rand.nextGaussian() * stdDevTime); // TTL in seconds
                 m.setTtl(ttl / 60); // TTL in minutes
         }
 
         public void removeLowestPriorityMessage() {
                 boolean reasonForRemoval = true; // true = message dropped, false = message delivered to final recipeint
                 deleteMessage(getNextMessageToRemove(false).getId(), reasonForRemoval);
+        }
+
+        /** Return the maximum possible TTL duration, in minutes. */
+        public int getMaxTtl() {
+                return (this.ttlMeanTime + this.ttlStdDevTime) / 60;
         }
 
 }

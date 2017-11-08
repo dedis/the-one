@@ -8,9 +8,21 @@ import input.EventQueue;
 import input.EventQueueHandler;
 
 import java.io.Serializable;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.regex.Pattern;
+import java.util.Scanner;
+import java.lang.Exception;
 
 import movement.MapBasedMovement;
 import movement.MovementModel;
@@ -359,7 +371,7 @@ public class SimScenario implements Serializable {
 				interfaces.add(iface);
 			}
 
-                        boolean mobyEnabled = False;
+                        boolean mobyEnabled = false;
 			// setup applications
 			if (s.contains(APPCOUNT_S)) {
 				appCount = s.getInt(APPCOUNT_S);
@@ -373,7 +385,7 @@ public class SimScenario implements Serializable {
 					// Get name of the application for this group
 					appname = s.getSetting(GAPPNAME_S+j);
                                         if (appname.equals("moby")) {
-                                                mobyEnabled = True;
+                                                mobyEnabled = true;
                                         }
 					// Get settings for the given application
 					Settings t = new Settings(appname);
@@ -397,35 +409,38 @@ public class SimScenario implements Serializable {
 				this.simMap = ((MapBasedMovement)mmProto).getMap();
 			}
 
+                        Map<Integer, Map<String, Boolean>> hostsContactsType = new HashMap<>();
+                        Map<Integer, Map<String, Integer>> hostsNbCommunications = new HashMap<>();
+                        Map<Integer, Integer> hostsHighestNbCommunications = null;
+                        Map<Integer, Map<String, List<Integer>>> hostsTrustElts = null;
                         if (mobyEnabled) {
-                                // TODO: finish changes after addition of hostsNbCommunications
                                 Settings mobySettings = new Settings(MOBY_NS);
                                 String inputFile = mobySettings.getSetting(PATH_TRUST_ELEMENTS_S);
-                                Map<Integer, Map<String, Boolean>> hostsContactsType = new HashMap<>();
-                                Map<Integer, Map<String, Integer>> hostsNbCommunications = new HashMap<>();
-                                Map<Integer, Integer> hostsHighestNbCommunications = loadTrustElementsDenominators(inputFile, hostsContactsType, gid, hostsNbCommunications);
-                                Map<Integer, Map<String, List<Integer>>> hostsTrustElts = computeTrustElts(hostsContactsType, hostsNbCommunications);
+                                hostsHighestNbCommunications = loadTrustElementsDenominators(inputFile, hostsContactsType, gid, hostsNbCommunications);
+                                hostsTrustElts = computeTrustElts(hostsContactsType, hostsNbCommunications, gid);
                         }
 
 			// creates hosts of ith group
 			for (int j=0; j<nrofHosts; j++) {
 				ModuleCommunicationBus comBus = new ModuleCommunicationBus();
 
+                                DTNHost host = null;
                                 if (mobyEnabled) {
                                         Settings mobySettings = new Settings(MOBY_NS);
 
-                                        mRouterProto.setTtlRandomizationSeed(rand.nextLong());
+                                        mRouterProto.setTtlRandomizationSeed((int)rand.nextLong());
 
                                         // prototypes are given to new DTNHost which replicates
                                         // new instances of movement model and message router
-                                        DTNHost host = new DTNHost(this.messageListeners, 
+                                        host = new DTNHost(this.messageListeners, 
                                                         this.movementListeners,	gid, interfaces, comBus, 
                                                         mmProto, mRouterProto, rand.nextLong(), mobySettings,
-                                                        hostsContactsType.get(j), hostsHighestNbCommunications.get(j));
+                                                        hostsContactsType.get(j), hostsHighestNbCommunications.get(j),
+                                                        hostsTrustElts.get(j));
                                 } else {
                                         // prototypes are given to new DTNHost which replicates
                                         // new instances of movement model and message router
-                                        DTNHost host = new DTNHost(this.messageListeners, 
+                                        host = new DTNHost(this.messageListeners, 
                                                         this.movementListeners,	gid, interfaces, comBus, 
                                                         mmProto, mRouterProto);
                                 }
@@ -458,7 +473,7 @@ public class SimScenario implements Serializable {
 		Pattern skipPattern = Pattern.compile("(#.*)|(^\\s*$)");
 
                 try (BufferedReader reader = new BufferedReader(new FileReader(new File(inputFile)))) {
-			String line = this.reader.readLine();
+			String line = reader.readLine();
                         while (line != null) {
                                 Scanner lineScan = new Scanner(line);
                                 lineScan.useDelimiter(",");
@@ -488,9 +503,9 @@ public class SimScenario implements Serializable {
                                         hostsNbCommunications.put(userID, nbCommunicationsPerContact);
                                 }
                                 
-                                line = this.reader.readLine();
+                                line = reader.readLine();
                         }
-		} catch (FileNotFoundException|IOException e) {
+		} catch (IOException e) {
 			throw new SimError(e.getMessage(),e);
 		}
 
@@ -540,8 +555,64 @@ public class SimScenario implements Serializable {
                 return result;
         }
 
-        public static Map<Integer, Map<String, List<Integer>>> computeTrustElts(Map<Integer, Map<String, Boolean>> hostsContactsType, Map<Integer, Map<String, Integer>> hostsNbCommunications) {
-                // TODO
+        public static Map<Integer, Map<String, List<Integer>>> computeTrustElts(Map<Integer, Map<String, Boolean>> hostsContactsType, Map<Integer, Map<String, Integer>> hostsNbCommunications, String gid) {
+                // We assume that hostsContactsType and hostsNbCommunications have the same set of keys, 
+                // and that each of the associated maps have the same set of keys.
+                // Meaning that hostsContactsType and hostsNbCommunications both represent the same set
+                // of users/hosts, each having the same set of contacts. 
+                Map<Integer, Map<String, List<Integer>>> result = new HashMap<>(hostsContactsType.size());
+                for (Integer host: hostsContactsType.keySet()) {
+                        Map<String, Integer> nbComms = hostsNbCommunications.get(host);
+
+                        Map<String, Boolean> contactsType = hostsContactsType.get(host);
+                        Set<String> hostMobyContacts = new HashSet<>();
+                        Set<String> hostNonMobyContacts = new HashSet<>();
+                        splitContactsPerType(contactsType, hostMobyContacts, hostNonMobyContacts);
+
+                        Map<String, List<Integer>> trustElts = new HashMap<>(contactsType.size());
+                        for (String contact: contactsType.keySet()) {
+                                Set<String> contactMobyContacts = new HashSet<>();
+                                Set<String> contactNonMobyContacts = new HashSet<>();
+                                if (contactsType.get(contact)) { // i.e. contact is a Moby contact
+                                        // removing the prefix characters from contact
+                                        int contactID = -1;
+                                        try {
+                                                contactID = Integer.valueOf(contact.substring(gid.length()));
+                                        } catch (NumberFormatException e) {
+                                                throw new SimError("Can't parse integer in '" + contact + "'", e);
+                                        }
+                                        
+                                        Map<String, Boolean> typeOfContactsOfContact = hostsContactsType.get(contactID);
+                                        splitContactsPerType(typeOfContactsOfContact, contactMobyContacts, contactNonMobyContacts);
+
+                                }
+
+                                Set<String> commonMobyContacts = new HashSet<>(hostMobyContacts);
+                                commonMobyContacts.retainAll(contactMobyContacts);
+                                Set<String> commonNonMobyContacts = new HashSet<>(hostNonMobyContacts);
+                                commonNonMobyContacts.retainAll(contactNonMobyContacts);
+
+                                List<Integer> elements = new ArrayList<>(3);
+                                elements.add(commonMobyContacts.size());
+                                elements.add(commonNonMobyContacts.size());
+                                elements.add(nbComms.get(contact));
+                                trustElts.put(contact, elements);
+                        }
+
+                        result.put(host, trustElts);
+                }
+
+                return result;
+        }
+
+        public static void splitContactsPerType(Map<String, Boolean> contactsType, Set<String> hostMobyContacts, Set<String> hostNonMobyContacts) {
+                for (String contact: contactsType.keySet()) {
+                        if (contactsType.get(contact)) {
+                                hostMobyContacts.add(contact);
+                        } else {
+                                hostNonMobyContacts.add(contact);
+                        }
+                }
         }
 
 }
