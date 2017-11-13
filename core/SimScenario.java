@@ -150,6 +150,7 @@ public class SimScenario implements Serializable {
 	 * Creates a scenario based on Settings object.
 	 */
 	protected SimScenario() {
+                //System.out.println("DEBUG: SimScenario.constructor");
 		Settings s = new Settings(SCENARIO_NS);
 		nrofGroups = s.getInt(NROF_GROUPS_S);
 
@@ -182,6 +183,7 @@ public class SimScenario implements Serializable {
 		
 		createHosts();
 		
+                //System.out.println("DEBUG: SimScenario.constructor: creating world");
 		this.world = new World(hosts, worldSizeX, worldSizeY, updateInterval, 
 				updateListeners, simulateConnections, 
 				eqHandler.getEventQueues());
@@ -191,6 +193,7 @@ public class SimScenario implements Serializable {
 	 * Returns the SimScenario instance and creates one if it doesn't exist yet
 	 */
 	public static SimScenario getInstance() {
+                //System.out.println("DEBUG: SimScenario.getInstance");
 		if (myinstance == null) {
 			myinstance = new SimScenario();
 		}
@@ -333,6 +336,7 @@ public class SimScenario implements Serializable {
 	 * Creates hosts for the scenario
 	 */
 	protected void createHosts() {
+                //System.out.println("DEBUG: SimScenario.createHosts");
 		this.hosts = new ArrayList<DTNHost>();
 
 		for (int i=1; i<=nrofGroups; i++) {
@@ -370,7 +374,9 @@ public class SimScenario implements Serializable {
 				iface.setGroupSettings(s);
 				interfaces.add(iface);
 			}
+                        //System.out.println("DEBUG: SimScenario.createHosts: most standard stuff created");
 
+                        //System.out.println("DEBUG: SimScenario.createHosts: creating applications");
                         boolean mobyEnabled = false;
 			// setup applications
 			if (s.contains(APPCOUNT_S)) {
@@ -409,6 +415,7 @@ public class SimScenario implements Serializable {
 				this.simMap = ((MapBasedMovement)mmProto).getMap();
 			}
 
+                        //System.out.println("DEBUG: SimScenario.createHosts: creating trust elements");
                         Map<Integer, Map<String, Boolean>> hostsContactsType = new HashMap<>();
                         Map<Integer, Map<String, Integer>> hostsNbCommunications = new HashMap<>();
                         Map<Integer, Integer> hostsHighestNbCommunications = null;
@@ -420,6 +427,7 @@ public class SimScenario implements Serializable {
                                 hostsTrustElts = computeTrustElts(hostsContactsType, hostsNbCommunications, gid);
                         }
 
+                        //System.out.println("DEBUG: SimScenario.createHosts: creating hosts");
 			// creates hosts of ith group
 			for (int j=0; j<nrofHosts; j++) {
 				ModuleCommunicationBus comBus = new ModuleCommunicationBus();
@@ -447,6 +455,7 @@ public class SimScenario implements Serializable {
 				hosts.add(host);
 			}
 		}
+                //System.out.println("DEBUG: SimScenario.createHosts: done");
 	}
 
 	/**
@@ -467,6 +476,7 @@ public class SimScenario implements Serializable {
 
         public Map<Integer, Integer> loadTrustElementsDenominators(String inputFile, Map<Integer,
                         Map<String, Boolean>> hostsContactsType, String gid, Map<Integer, Map<String, Integer>> hostsNbCommunications) {
+                //System.out.println("DEBUG: SimScenario.loadTrustElementsDenominators");
                 Map<Integer, Integer> result = new HashMap<>();
 
 		// skip empty and comment lines
@@ -475,12 +485,11 @@ public class SimScenario implements Serializable {
                 try (BufferedReader reader = new BufferedReader(new FileReader(new File(inputFile)))) {
 			String line = reader.readLine();
                         while (line != null) {
+                                //System.out.println("DEBUG: SimScenario.loadTrustElementsDenominators: line: " + line);
                                 Scanner lineScan = new Scanner(line);
                                 lineScan.useDelimiter(",");
 
-                                if (skipPattern.matcher(line).matches()) {
-                                        continue;
-                                } else {
+                                if (!skipPattern.matcher(line).matches()) {
                                         int userID;
                                         String rawMobyContactList;
                                         String rawNonMobyContactList;
@@ -521,13 +530,15 @@ public class SimScenario implements Serializable {
 
                 Scanner listScan = new Scanner(rawList);
                 listScan.useDelimiter("|");
+		Pattern contactAndNbCommsPattern = Pattern.compile("[0-9]+=[0-9]");
                 while (listScan.hasNext()) {
                         String contactAndNbComms;
                         try {
-                                contactAndNbComms = listScan.next();
+                                contactAndNbComms = listScan.findInLine(contactAndNbCommsPattern);
                         } catch (Exception e) {
                                 throw new SimError("Can't parse '" + rawList + "'", e);
                         }
+                        //System.out.println("DEBUG: SimScenario.parseRawContactList: contactAndNbComms: " + contactAndNbComms);
                         String[] splitted = contactAndNbComms.split("=");
                         String contactID = prefix + splitted[0];
                         result.add(contactID);

@@ -161,6 +161,7 @@ public abstract class MessageRouter {
 		this.bufferSize = r.bufferSize;
 		this.msgTtl = r.msgTtl;
 		this.sendQueueMode = r.sendQueueMode;
+                this.rand = r.rand;
 
 		this.applications = new HashMap<String, Collection<Application>>();
 		for (Collection<Application> apps : r.applications.values()) {
@@ -704,5 +705,9 @@ public abstract class MessageRouter {
         // Moby-specific
         public void setTtlRandomizationSeed(int seed) {
                 this.rand = new Random(seed);
+        }
+
+        protected Random getPRNG() {
+                return this.rand;
         }
 }

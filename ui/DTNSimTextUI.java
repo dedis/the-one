@@ -16,6 +16,7 @@ public class DTNSimTextUI extends DTNSimUI {
 	public static final long UI_UP_INTERVAL = 60000;
 
 	protected void runSim() {
+                //System.out.println("DEBUG: DTNSimTextUI.runSim");
 		double simTime = SimClock.getTime();
 		double endTime = scen.getEndTime();
 	
@@ -34,6 +35,7 @@ public class DTNSimTextUI extends DTNSimUI {
 			}
 			simTime = SimClock.getTime();
 			this.update(false);
+                        //System.out.println("DEBUG: DTNSimTextUI.runSim: 1 sim cycle done");
 		}
 		
 		double duration = (System.currentTimeMillis() - startTime)/1000.0;

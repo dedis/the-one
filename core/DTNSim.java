@@ -82,6 +82,7 @@ public class DTNSim {
 				print("Run " + (i+1) + "/" + nrofRuns[1]);
 				Settings.setRunIndex(i);
 				resetForNextRun();
+                                //System.out.println("DEBUG: Resetted all classes for next run");
 				new DTNSimTextUI().start();
 			}
 			double duration = (System.currentTimeMillis() - startTime)/1000.0;

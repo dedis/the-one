@@ -290,13 +290,18 @@ public class MobyRouter extends ActiveRouter {
                 boolean added = super.createNewMessage(m);
                 // TTL randomization must be done after call to parent classes methods,
                 // otherwise the TTL is overwritten in parent classes.
-                randomizeTtl(m, this.ttlMeanTime, this.ttlStdDevTime, this.rand);
+                //System.out.println("DEBUG: MobyRouter.createNewMessage: rand: " + super.getPRNG().toString());
+                randomizeTtl(m, this.ttlMeanTime, this.ttlStdDevTime, super.getPRNG());
                 m.addProperty("type", "Moby"); // so that MobyApplication.handle() recognizes this is a Moby msg
                 this.getHost().incrementNbCommunicationsWith(m.getTo().toString());
                 return added;
         }
 
         public static void randomizeTtl(Message m, int meanTime, int stdDevTime, Random rand) {
+                /*System.out.println("DEBUG: MobyRouter.randomizeTtl: m: " + m.toString());*/
+                //System.out.println("DEBUG: MobyRouter.randomizeTtl: meanTime: " + Integer.toString(meanTime));
+                //System.out.println("DEBUG: MobyRouter.randomizeTtl: stdDevTime: " + Integer.toString(stdDevTime));
+                /*System.out.println("DEBUG: MobyRouter.randomizeTtl: rand: " + rand.toString());*/
                 int ttl = meanTime + (int) (rand.nextGaussian() * stdDevTime); // TTL in seconds
                 m.setTtl(ttl / 60); // TTL in minutes
         }

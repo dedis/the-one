@@ -73,7 +73,9 @@ public abstract class DTNSimUI {
 	 * Starts the simulation.
 	 */
 	public void start() {
+                //System.out.println("DEBUG: DTNSimUI.start");
 		initModel();
+                //System.out.println("DEBUG: DTNSimUI.start: model initialized");
 		runSim();
 	}
 	
@@ -86,11 +88,14 @@ public abstract class DTNSimUI {
 	 * Initializes the simulator model.
 	 */
 	private void initModel() {
+                //System.out.println("DEBUG: DTNSimUI.initModel");
 		Settings settings = null;
 				
 		try {
 			settings = new Settings();
+                        //System.out.println("DEBUG: DTNSimUI.initModel: Settings created");
 			this.scen = SimScenario.getInstance();
+                        //System.out.println("DEBUG: DTNSimUI.initModel: SimScenario created");
 
 			// add reports
 			for (int i=1, n = settings.getInt(NROF_REPORT_S); i<=n; i++){
@@ -98,6 +103,7 @@ public abstract class DTNSimUI {
 				addReport((Report)settings.createObject(REPORT_PAC + 
 						reportClass));	
 			}
+                        //System.out.println("DEBUG: DTNSimUI.initModel: reports added");
 
 			double warmupTime = 0;
 			if (settings.contains(MM_WARMUP_S)) {
@@ -107,9 +113,12 @@ public abstract class DTNSimUI {
 					c.setTime(-warmupTime);
 				}
 			}
+                        //System.out.println("DEBUG: DTNSimUI.initModel: warm-up time set");
 
 			this.world = this.scen.getWorld();
+                        //System.out.println("DEBUG: DTNSimUI.initModel: warming up");
 			world.warmupMovementModel(warmupTime);
+                        //System.out.println("DEBUG: DTNSimUI.initModel: warmed up");
 		}
 		catch (SettingsError se) {
 			System.err.println("Can't start: error in configuration file(s)");
