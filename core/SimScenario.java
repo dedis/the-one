@@ -13,6 +13,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -28,6 +31,9 @@ import movement.MapBasedMovement;
 import movement.MovementModel;
 import movement.map.SimMap;
 import routing.MessageRouter;
+
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.commons.compress.compressors.CompressorException;
 
 /**
  * A simulation scenario used for getting and storing the settings of a
@@ -482,7 +488,7 @@ public class SimScenario implements Serializable {
 		// skip empty and comment lines
 		Pattern skipPattern = Pattern.compile("(#.*)|(^\\s*$)");
 
-                try (BufferedReader reader = new BufferedReader(new FileReader(new File(inputFile)))) {
+                try (BufferedReader reader = getInputReader(inputFile)) {
 			String line = reader.readLine();
                         while (line != null) {
                                 //System.out.println("DEBUG: SimScenario.loadTrustElementsDenominators: line: " + line);
@@ -518,6 +524,29 @@ public class SimScenario implements Serializable {
 			throw new SimError(e.getMessage(),e);
 		}
 
+                return result;
+        }
+
+        /**
+         * Return the appropriate BufferedReader depending on whether the input file is compressed or not.
+         */
+        public static BufferedReader getInputReader(String i) {
+                BufferedReader result;
+                // Detect if the input file is compressed with one of these format: xz, bzip2, gzip, zip, tar, lzma
+                // If needed, other formats can be detected as the Apache Commons Compress library supports more.
+                // See https://commons.apache.org/proper/commons-compress/index.html
+                boolean inputIsCompressed = i.endsWith(".xz") ||  i.endsWith(".bz2") || i.endsWith(".gz") || i.endsWith(".zip") || i.endsWith(".tar") || i.endsWith(".lzma");
+                try {
+                        if (inputIsCompressed) {
+                                result = new BufferedReader(new InputStreamReader(new CompressorStreamFactory().createCompressorInputStream(
+                                                                new BufferedInputStream(new FileInputStream(i))
+                                                                )));
+                        } else {
+                                result = new BufferedReader(new FileReader(new File(i))); 
+                        }
+                } catch (FileNotFoundException|CompressorException e) {
+                        throw new SimError(e.getMessage(),e);
+                }
                 return result;
         }
 
