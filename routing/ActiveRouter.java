@@ -59,6 +59,8 @@ public abstract class ActiveRouter extends MessageRouter {
 		
 		this.policy = new MessageTransferAcceptPolicy(s);
 		
+                /*System.out.println("DEBUG: ActiveRouter.constructor: Settings namespace: " + s.getNameSpace());*/
+                /*System.out.println("DEBUG: ActiveRouter.constructor: Settings 2nd namespace: " + s.getSecondaryNameSpace());*/
 		this.deleteDelivered = s.getBoolean(DELETE_DELIVERED_S, false);
 		
 		if (s.contains(EnergyModel.INIT_ENERGY_S)) {
