@@ -1,0 +1,4 @@
+#user_id,list_of_moby_contact_id_and_nb_comms,list_of_non-moby_contact_id_and_nb_comms,highest_nb_comms
+0,1=2|2=4,100=1|101=2|102=3,4
+1,0=5,100=6,6
+2,,100=7|101=8,8

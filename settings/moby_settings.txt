@@ -1,0 +1,112 @@
+Scenario.name = moby_test
+Scenario.simulateConnections = true
+# Simulation update interval in seconds
+Scenario.updateInterval = 0.1
+# Simulation end time in seconds
+# 43200s == 12h
+Scenario.endTime = 35
+
+# Definition of a "Bluetooth" interface
+btInterface.type = SimpleBroadcastInterface
+# Transmit speed of 2 Mbps = 250kBps
+btInterface.transmitSpeed = 250k
+btInterface.transmitRange = 10
+
+# New setting
+Scenario.prngSeed = 12345679
+
+Scenario.nrofHostGroups = 1
+Scenario.nrofHostGroups = 1
+
+Group.router = MobyRouter
+Group.bufferSize = 5M
+# waitTime: Minimum and maximum (two comma-separated decimal values) of the wait time 
+# interval (seconds). Defines how long nodes should stay in the same place 
+# after reaching the destination of the current path. A new random value within 
+# the interval is used on every stop. Default value is 0,0.
+Group.waitTime = 0, 0
+# All nodes have the bluetooth interface
+Group.nrofInterfaces = 1
+Group.interface1 = btInterface
+# Walking speeds: Minimum and maximum (two comma-separated decimal values) of the speed 
+# interval (m/s). Defines how fast nodes move. A new random value is used on 
+# every new path. Default value is 1,1.
+# Preferred Walking Speed
+#Group.speed = 1.4, 1.4
+# Teleportation: 3600 km/h
+Group.speed = 1000, 1000
+
+## TTL in minutes
+# 5 hours TTL
+#Group.msgTtl = 300
+# 48 hours TTL
+Group.msgTtl = 2880
+# 72 hours TTL
+#Group.msgTtl = 4320
+
+# Total number of users/hosts
+Group.nrofHosts = 3
+
+Group1.nrofHosts = 3
+Group1.groupID = u
+Group1.nrofApplications = 1
+Group1.application1 = moby
+
+### New Moby setting ###
+moby.type = MobyApplication
+moby.maxnrofMobyContacts = 126
+moby.maxnrofNonMobyContacts = 126
+Group1.maxNbConnectionsForForward = 10
+#moby.maxNbConnectionsForForward = 10
+
+# 48h in seconds
+moby.timeRememberForwardedMsgs = 172800
+# 72h in seconds
+Group1.ttlMeanTime = 259200
+#moby.ttlMeanTime = 259200
+# 24h in seconds
+Group1.ttlStdDevTime = 86400
+#moby.ttlStdDevTime = 86400
+
+moby.pathToTrustElementsFile = test_data/trust_elements.csv
+# The CSV file can be compressed with xz, bzip2, gzip, zip, tar, or lzma formats
+#moby.pathToTrustElementsFile = test_data/trust_elements.csv.xz
+moby.trustWeightMobyContacts = 0.3
+moby.trustWeightNonMobyContacts = 0.2
+moby.trustWeightnrofCommunications = 0.5
+
+### End of new Moby setting ###
+
+Group1.movementModel = ExternalMovement
+ExternalMovement.file = test_data/the_one_movement_model.txt
+# World's size for Movement Models without implicit size (width, height; meters)
+MovementModel.worldSize = 150, 50
+# How long time to move hosts in the world before real simulation
+MovementModel.warmup = 0
+
+
+# Make sure $SOME_NAMESPACE.deleteDelivered is set to false, maybe $SOME_NAMESPACE = Group.router
+Group1.router.deleteDelivered = false
+
+Events1.class = ExternalEventsQueue
+Events1.filePath = test_data/the_one_message_creation_events.txt
+# default nb of preloaded events: 500
+#Events1.nrofPreload = 500
+
+# how many reports to load
+Report.nrofReports = 5
+# length of the warm up period (simulated seconds)
+Report.warmup = 0
+# default directory of reports (can be overridden per Report with output setting)
+Report.reportDir = reports/
+# Report classes to load
+Report.report1 = ContactTimesReport
+Report.report2 = ConnectivityONEReport
+Report.report3 = EventLogReport
+Report.report4 = MessageReport
+Report.report5 = MessageStatsReport
+
+## Optimization settings -- these affect the speed of the simulation
+## see World class for details.
+Optimization.cellSizeMult = 5
+Optimization.randomizeUpdateOrder = true

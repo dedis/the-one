@@ -1,0 +1,12 @@
+#1st_line_is_the_offset_header: minTime_in_minutes maxTime_in_minutes minX_aka_min_longitude maxX_aka_max_longitude minY_aka_min_latitude maxY_aka_max_latitude
+#other_lines_contain_the_following: time_in_minutes renumberd_user_id X_coordinate_aka_longitude Y_coordinate_aka_latitude
+0.0 30.0 -70.0 70.0 0.0 40.0
+0.0 0 -50.0 20.0
+0.0 1 0.0 20.0
+0.0 2 50.0 20.0
+5.0 2 -50.0 20.0
+7.0 2 0.0 20.0
+10.0 2 0.0 20.0
+15.0 2 -50.0 20.0
+20.0 2 -50.0 20.0
+30.0 2 50.0 20.0

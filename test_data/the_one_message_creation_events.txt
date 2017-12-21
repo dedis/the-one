@@ -1,0 +1,4 @@
+#timestamp_in_minutes event_type message_ID sender_user_ID receiver_user_ID message_size
+0.0 C M0 u0 u1 256
+10.0 C M1 u1 u0 256
+20.0 C M2 u0 u2 256
